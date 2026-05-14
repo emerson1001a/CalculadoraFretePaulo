@@ -2,3 +2,4 @@ node_modules/
 fretes.db
 *.db
 .env
+data/

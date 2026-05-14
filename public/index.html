@@ -285,10 +285,11 @@
 
 <body>
   <div class="wrap">
-    <h1>Calculadora de Frete — Paulo/Rapha</h1>
-    <div class="sub">
-      Calcula o lucro operacional do frete, divide 50% para Paulo e 50% para Rapha, salva no banco local e controla o acerto mensal.
-    </div>
+<h1>Calculadora de Frete — Paulo/Rapha</h1>
+<div class="sub">
+  <strong>Carreta LS • 6 eixos • Porta Container Duplo</strong><br>
+  Calcula o lucro operacional do frete, salva no banco local e controla o acerto mensal.
+</div>
 
     <div class="grid">
       <div class="card">
@@ -334,14 +335,24 @@
             </div>
 
             <div id="retornoManualBox" class="hidden">
-              <label for="distanciaVolta">Distância de volta considerada (km)</label>
-              <input id="distanciaVolta" inputmode="decimal" placeholder="Ex.: 674">
-            </div>
+  <label for="distanciaVolta">Distância de volta considerada (km)</label>
+  <input id="distanciaVolta" inputmode="decimal" placeholder="Ex.: 674">
+</div>
 
-            <div>
-              <label for="observacao">Observação</label>
-              <input id="observacao" placeholder="Ex.: retorno vazio, frete fechado por telefone etc.">
-            </div>
+<div>
+  <label for="pedagio">Pedágio da viagem (R$)</label>
+  <input id="pedagio" inputmode="decimal" value="0" placeholder="Ex.: 430">
+</div>
+
+<div>
+  <label for="outrosCustos">Outros custos da viagem (R$)</label>
+  <input id="outrosCustos" inputmode="decimal" value="0" placeholder="Ex.: 120">
+</div>
+
+<div>
+  <label for="observacao">Observação</label>
+  <input id="observacao" placeholder="Ex.: retorno vazio, frete fechado por telefone etc.">
+</div>
           </div>
 
           <div class="btns">
@@ -441,20 +452,14 @@
             <input id="motorista" inputmode="decimal" value="0">
           </div>
 
-          <div>
-            <label for="pedagio">Pedágio (R$) — opcional</label>
-            <input id="pedagio" inputmode="decimal" value="0">
-          </div>
+         
 
           <div>
             <label for="impostoPct">Imposto/administração (% frete) — opcional</label>
             <input id="impostoPct" inputmode="decimal" value="0">
           </div>
 
-          <div>
-            <label for="outrosCustos">Outros custos (R$) — opcional</label>
-            <input id="outrosCustos" inputmode="decimal" value="0">
-          </div>
+          
         </div>
       </div>
     </div>
