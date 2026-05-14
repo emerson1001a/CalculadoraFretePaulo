@@ -1,0 +1,13 @@
+{
+  "name": "calculadora-frete-paulo",
+  "version": "1.0.0",
+  "description": "Calculadora de frete com histórico e acerto Paulo/Rapha",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "express": "^4.18.2"
+  }
+}

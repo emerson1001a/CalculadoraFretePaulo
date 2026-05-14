@@ -1,0 +1,889 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Calculadora de Frete — Paulo/Rapha</title>
+
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #111c31;
+      --card2: #0f172a;
+      --text: #e5e7eb;
+      --muted: #a7b0c0;
+      --line: rgba(255,255,255,.14);
+      --accent: #38bdf8;
+      --good: #22c55e;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      background: linear-gradient(180deg, #07101f 0%, #0b1220 50%, #07101f 100%);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: -0.03em;
+    }
+
+    .sub {
+      color: var(--muted);
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      align-items: start;
+      margin-top: 16px;
+    }
+
+    @media(max-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: rgba(17,28,49,.94);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 18px 45px rgba(0,0,0,.35);
+    }
+
+    .cardHead {
+      padding: 13px 15px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .cardTitle {
+      font-size: 17px;
+      font-weight: 900;
+    }
+
+    .cardBody {
+      padding: 15px;
+    }
+
+    .formGrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 11px;
+    }
+
+    @media(max-width: 620px) {
+      .formGrid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: var(--card2);
+      color: var(--text);
+      font-size: 16px;
+      outline: none;
+    }
+
+    textarea {
+      min-height: 70px;
+      resize: vertical;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: rgba(56,189,248,.7);
+      box-shadow: 0 0 0 3px rgba(56,189,248,.12);
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 11px 16px;
+      font-weight: 900;
+      cursor: pointer;
+      background: var(--accent);
+      color: #04111f;
+    }
+
+    button.secondary {
+      background: #ffffff1f;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    button.danger {
+      background: #ef444422;
+      color: #fecaca;
+      border: 1px solid #ef444455;
+    }
+
+    .btns {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 13px;
+    }
+
+    .sectionGap {
+      margin-top: 14px;
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .resultMain {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 11px;
+    }
+
+    @media(max-width: 620px) {
+      .resultMain {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .metric {
+      background: rgba(255,255,255,.045);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 13px;
+    }
+
+    .metric .k {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .metric .v {
+      font-size: 23px;
+      font-weight: 950;
+      margin-top: 4px;
+      letter-spacing: -.03em;
+    }
+
+    .goodText {
+      color: #86efac;
+    }
+
+    .warnText {
+      color: #fde68a;
+    }
+
+    .badText {
+      color: #fecaca;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      font-size: 14px;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    td:last-child, th:last-child {
+      text-align: right;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .pendente {
+      background: rgba(245,158,11,.15);
+      color: #fde68a;
+      border: 1px solid rgba(245,158,11,.35);
+    }
+
+    .acertado {
+      background: rgba(34,197,94,.15);
+      color: #86efac;
+      border: 1px solid rgba(34,197,94,.35);
+    }
+
+    .note {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(56,189,248,.25);
+      background: rgba(56,189,248,.08);
+      color: #bae6fd;
+      line-height: 1.45;
+      font-size: 14px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .tableWrap {
+      overflow-x: auto;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>Calculadora de Frete — Paulo/Rapha</h1>
+    <div class="sub">
+      Calcula o lucro operacional do frete, divide 50% para Paulo e 50% para Rapha, salva no banco local e controla o acerto mensal.
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="cardHead">
+          <div class="cardTitle">Dados do frete</div>
+          <div class="small">Entrada principal</div>
+        </div>
+
+        <div class="cardBody">
+          <div class="formGrid">
+            <div>
+              <label for="data">Data</label>
+              <input id="data" type="date">
+            </div>
+
+            <div>
+              <label for="frete">Valor do frete recebido (R$)</label>
+              <input id="frete" inputmode="decimal" placeholder="Ex.: 7500">
+            </div>
+
+            <div>
+              <label for="origem">Origem</label>
+              <input id="origem" value="Guarujá/SP" placeholder="Ex.: Guarujá/SP">
+            </div>
+
+            <div>
+              <label for="destino">Destino</label>
+              <input id="destino" placeholder="Ex.: Uberlândia/MG">
+            </div>
+
+            <div>
+              <label for="distanciaIda">Distância de ida carregada (km)</label>
+              <input id="distanciaIda" inputmode="decimal" placeholder="Ex.: 674">
+            </div>
+
+            <div>
+              <label for="tipoRetorno">Volta / retorno</label>
+              <select id="tipoRetorno">
+                <option value="vazio" selected>Volta vazio — considera ida + volta no custo</option>
+                <option value="ignorar">Considerar somente a ida</option>
+                <option value="manual">Informar km de volta manualmente</option>
+              </select>
+            </div>
+
+            <div id="retornoManualBox" class="hidden">
+              <label for="distanciaVolta">Distância de volta considerada (km)</label>
+              <input id="distanciaVolta" inputmode="decimal" placeholder="Ex.: 674">
+            </div>
+
+            <div>
+              <label for="observacao">Observação</label>
+              <input id="observacao" placeholder="Ex.: retorno vazio, frete fechado por telefone etc.">
+            </div>
+          </div>
+
+          <div class="btns">
+            <button id="btnCalcular" type="button">Recalcular agora</button>
+            <button id="btnSalvar" type="button">Salvar frete</button>
+            <button id="btnLimpar" type="button" class="secondary">Limpar entrada</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="cardHead">
+          <div class="cardTitle">Resumo do frete</div>
+          <div class="small" id="status">Pronto</div>
+        </div>
+
+        <div class="cardBody">
+          <div class="resultMain">
+            <div class="metric">
+              <div class="k">Lucro líquido</div>
+              <div class="v" id="lucro">R$ 0,00</div>
+            </div>
+
+            <div class="metric">
+              <div class="k">Margem</div>
+              <div class="v" id="margem">0,00%</div>
+            </div>
+
+            <div class="metric">
+              <div class="k">Paulo — 50%</div>
+              <div class="v goodText" id="partePaulo">R$ 0,00</div>
+            </div>
+
+            <div class="metric">
+              <div class="k">Rapha — 50%</div>
+              <div class="v goodText" id="parteRapha">R$ 0,00</div>
+            </div>
+
+            <div class="metric">
+              <div class="k">Custo total</div>
+              <div class="v" id="custoTotal">R$ 0,00</div>
+            </div>
+
+            <div class="metric">
+              <div class="k">Lucro por km total</div>
+              <div class="v" id="lucroKm">R$ 0,00/km</div>
+            </div>
+          </div>
+
+          <div class="note">
+            Regra atual do acordo: Paulo e Rapha dividem o lucro líquido em 50% para cada um.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card sectionGap">
+      <div class="cardHead">
+        <div class="cardTitle">Parâmetros do caminhão</div>
+        <div class="small">Caminhão do Paulo</div>
+      </div>
+
+      <div class="cardBody">
+        <div class="formGrid">
+          <div>
+            <label for="consumoDiesel">Consumo diesel (km/L)</label>
+            <input id="consumoDiesel" inputmode="decimal" value="2.5">
+          </div>
+
+          <div>
+            <label for="precoDiesel">Preço diesel (R$/L)</label>
+            <input id="precoDiesel" inputmode="decimal" value="6.60">
+          </div>
+
+          <div>
+            <label for="kmPorArla">ARLA — km por litro</label>
+            <input id="kmPorArla" inputmode="decimal" value="12">
+          </div>
+
+          <div>
+            <label for="precoArla">Preço ARLA (R$/L)</label>
+            <input id="precoArla" inputmode="decimal" value="3.60">
+          </div>
+
+          <div>
+            <label for="manutencaoPct">Manutenção (% do frete)</label>
+            <input id="manutencaoPct" inputmode="decimal" value="10">
+          </div>
+
+          <div>
+            <label for="depreciacaoKm">Depreciação (R$/km)</label>
+            <input id="depreciacaoKm" inputmode="decimal" value="0.50">
+          </div>
+
+          <div>
+            <label for="motorista">Motorista (R$) — opcional</label>
+            <input id="motorista" inputmode="decimal" value="0">
+          </div>
+
+          <div>
+            <label for="pedagio">Pedágio (R$) — opcional</label>
+            <input id="pedagio" inputmode="decimal" value="0">
+          </div>
+
+          <div>
+            <label for="impostoPct">Imposto/administração (% frete) — opcional</label>
+            <input id="impostoPct" inputmode="decimal" value="0">
+          </div>
+
+          <div>
+            <label for="outrosCustos">Outros custos (R$) — opcional</label>
+            <input id="outrosCustos" inputmode="decimal" value="0">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card sectionGap">
+      <div class="cardHead">
+        <div class="cardTitle">Detalhamento do cálculo</div>
+        <div class="small">Custos considerados</div>
+      </div>
+
+      <div class="cardBody">
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Valor</th>
+              </tr>
+            </thead>
+            <tbody id="costTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card sectionGap">
+      <div class="cardHead">
+        <div class="cardTitle">Resumo geral</div>
+        <div class="small">Histórico salvo no banco</div>
+      </div>
+
+      <div class="cardBody">
+        <div class="resultMain">
+          <div class="metric">
+            <div class="k">Faturamento bruto</div>
+            <div class="v" id="totalFaturamento">R$ 0,00</div>
+          </div>
+
+          <div class="metric">
+            <div class="k">Lucro líquido</div>
+            <div class="v" id="totalLucro">R$ 0,00</div>
+          </div>
+
+          <div class="metric">
+            <div class="k">Paulo a receber</div>
+            <div class="v goodText" id="totalPaulo">R$ 0,00</div>
+          </div>
+
+          <div class="metric">
+            <div class="k">Rapha</div>
+            <div class="v goodText" id="totalRapha">R$ 0,00</div>
+          </div>
+        </div>
+
+        <div class="btns">
+          <button id="btnAcertarPendentes" type="button" class="secondary">Marcar todos pendentes como acertados</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card sectionGap">
+      <div class="cardHead">
+        <div class="cardTitle">Histórico de fretes</div>
+        <div class="small">Pendentes e acertados</div>
+      </div>
+
+      <div class="cardBody">
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Rota</th>
+                <th>Frete</th>
+                <th>Lucro</th>
+                <th>Paulo</th>
+                <th>Rapha</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="historico"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let ultimoCalculo = null;
+    let fretes = [];
+
+    const ids = [
+      "data", "origem", "destino", "frete", "distanciaIda", "tipoRetorno", "distanciaVolta",
+      "consumoDiesel", "precoDiesel", "kmPorArla", "precoArla", "manutencaoPct", "depreciacaoKm",
+      "motorista", "pedagio", "impostoPct", "outrosCustos", "observacao"
+    ];
+
+    function el(id) {
+      return document.getElementById(id);
+    }
+
+    function valor(id) {
+      const campo = el(id);
+      return campo ? campo.value : "";
+    }
+
+    function numero(v) {
+      const n = Number(String(v || "").replace(",", "."));
+      return isFinite(n) ? n : 0;
+    }
+
+    function dinheiro(n) {
+      return Number(n || 0).toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL"
+      });
+    }
+
+    function porcentagem(n) {
+      return Number(n || 0).toLocaleString("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }) + "%";
+    }
+
+    function dinheiroKm(n) {
+      return dinheiro(n) + "/km";
+    }
+
+    function hoje() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function toggleRetornoManual() {
+      const box = el("retornoManualBox");
+      if (!box) return;
+
+      if (valor("tipoRetorno") === "manual") {
+        box.classList.remove("hidden");
+      } else {
+        box.classList.add("hidden");
+      }
+    }
+
+    function addRow(item, value) {
+      const tbody = el("costTable");
+      if (!tbody) return;
+
+      const tr = document.createElement("tr");
+      const td1 = document.createElement("td");
+      const td2 = document.createElement("td");
+
+      td1.textContent = item;
+      td2.textContent = value;
+
+      tr.appendChild(td1);
+      tr.appendChild(td2);
+      tbody.appendChild(tr);
+    }
+
+    function calcularFrete() {
+      toggleRetornoManual();
+
+      const frete = numero(valor("frete"));
+      const ida = numero(valor("distanciaIda"));
+      const tipoRetorno = valor("tipoRetorno");
+      let volta = 0;
+
+      if (tipoRetorno === "vazio") {
+        volta = ida;
+      } else if (tipoRetorno === "manual") {
+        volta = numero(valor("distanciaVolta"));
+      } else {
+        volta = 0;
+      }
+
+      const kmTotal = ida + volta;
+
+      const consumoDiesel = numero(valor("consumoDiesel"));
+      const precoDiesel = numero(valor("precoDiesel"));
+      const kmPorArla = numero(valor("kmPorArla"));
+      const precoArla = numero(valor("precoArla"));
+      const manutencaoPct = numero(valor("manutencaoPct"));
+      const depreciacaoKm = numero(valor("depreciacaoKm"));
+      const motorista = numero(valor("motorista"));
+      const pedagio = numero(valor("pedagio"));
+      const impostoPct = numero(valor("impostoPct"));
+      const outrosCustos = numero(valor("outrosCustos"));
+
+      const litrosDiesel = consumoDiesel > 0 ? kmTotal / consumoDiesel : 0;
+      const custoDiesel = litrosDiesel * precoDiesel;
+
+      const litrosArla = kmPorArla > 0 ? kmTotal / kmPorArla : 0;
+      const custoArla = litrosArla * precoArla;
+
+      const custoManutencao = frete * (manutencaoPct / 100);
+      const custoDepreciacao = kmTotal * depreciacaoKm;
+      const imposto = frete * (impostoPct / 100);
+
+      const custoTotal = custoDiesel + custoArla + custoManutencao + custoDepreciacao + motorista + pedagio + imposto + outrosCustos;
+      const lucro = frete - custoTotal;
+      const partePaulo = lucro / 2;
+      const parteRapha = lucro / 2;
+      const margem = frete > 0 ? (lucro / frete) * 100 : 0;
+      const lucroPorKm = kmTotal > 0 ? lucro / kmTotal : 0;
+
+      ultimoCalculo = {
+        data: valor("data") || hoje(),
+        origem: valor("origem"),
+        destino: valor("destino"),
+        valor_frete: frete,
+        km_ida: ida,
+        km_volta: volta,
+        km_total: kmTotal,
+        custo_diesel: custoDiesel,
+        custo_arla: custoArla,
+        custo_manutencao: custoManutencao,
+        custo_depreciacao: custoDepreciacao,
+        motorista,
+        pedagio,
+        imposto,
+        outros_custos: outrosCustos,
+        custo_total: custoTotal,
+        lucro,
+        parte_paulo: partePaulo,
+        parte_rapha: parteRapha,
+        margem,
+        lucro_por_km: lucroPorKm,
+        status_acerto: "pendente",
+        observacao: valor("observacao")
+      };
+
+      el("lucro").textContent = dinheiro(lucro);
+      el("margem").textContent = porcentagem(margem);
+      el("partePaulo").textContent = dinheiro(partePaulo);
+      el("parteRapha").textContent = dinheiro(parteRapha);
+      el("custoTotal").textContent = dinheiro(custoTotal);
+      el("lucroKm").textContent = dinheiroKm(lucroPorKm);
+
+      const tabela = el("costTable");
+      if (tabela) tabela.innerHTML = "";
+
+      addRow("Frete recebido", dinheiro(frete));
+      addRow("Origem → destino", (valor("origem") || "-") + " → " + (valor("destino") || "-"));
+      addRow("Distância ida carregada", ida.toLocaleString("pt-BR") + " km");
+      addRow("Distância volta considerada", volta.toLocaleString("pt-BR") + " km");
+      addRow("Distância total", kmTotal.toLocaleString("pt-BR") + " km");
+      addRow("Diesel — " + litrosDiesel.toLocaleString("pt-BR", { maximumFractionDigits: 2 }) + " L", dinheiro(custoDiesel));
+      addRow("ARLA — " + litrosArla.toLocaleString("pt-BR", { maximumFractionDigits: 2 }) + " L", dinheiro(custoArla));
+      addRow("Manutenção", dinheiro(custoManutencao));
+      addRow("Depreciação", dinheiro(custoDepreciacao));
+      addRow("Motorista", dinheiro(motorista));
+      addRow("Pedágio", dinheiro(pedagio));
+      addRow("Imposto/administração", dinheiro(imposto));
+      addRow("Outros custos", dinheiro(outrosCustos));
+      addRow("Custo total", dinheiro(custoTotal));
+      addRow("Lucro líquido", dinheiro(lucro));
+      addRow("Paulo — 50%", dinheiro(partePaulo));
+      addRow("Rapha — 50%", dinheiro(parteRapha));
+
+      return ultimoCalculo;
+    }
+
+    async function salvarFrete() {
+      const dados = calcularFrete();
+
+      if (!dados.valor_frete || !dados.km_ida) {
+        alert("Preencha pelo menos o valor do frete e a distância de ida.");
+        return;
+      }
+
+      const resposta = await fetch("/api/fretes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(dados)
+      });
+
+      const json = await resposta.json();
+
+      if (json.ok) {
+        el("status").textContent = "Frete salvo com sucesso.";
+        await carregarFretes();
+        limparEntradaBasica();
+      } else {
+        alert("Erro ao salvar o frete.");
+      }
+    }
+
+    async function carregarFretes() {
+      const resposta = await fetch("/api/fretes");
+      fretes = await resposta.json();
+
+      renderResumoGeral();
+      renderHistorico();
+    }
+
+    function renderResumoGeral() {
+      const total = fretes.reduce((acc, f) => {
+        acc.faturamento += numero(f.valor_frete);
+        acc.lucro += numero(f.lucro);
+
+        if (f.status_acerto === "pendente") {
+          acc.paulo += numero(f.parte_paulo);
+          acc.rapha += numero(f.parte_rapha);
+        }
+
+        return acc;
+      }, {
+        faturamento: 0,
+        lucro: 0,
+        paulo: 0,
+        rapha: 0
+      });
+
+      el("totalFaturamento").textContent = dinheiro(total.faturamento);
+      el("totalLucro").textContent = dinheiro(total.lucro);
+      el("totalPaulo").textContent = dinheiro(total.paulo);
+      el("totalRapha").textContent = dinheiro(total.rapha);
+    }
+
+    function renderHistorico() {
+      const tbody = el("historico");
+      tbody.innerHTML = "";
+
+      if (!fretes.length) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 8;
+        td.textContent = "Nenhum frete salvo ainda.";
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+      }
+
+      fretes.forEach((f) => {
+        const tr = document.createElement("tr");
+
+        const statusClass = f.status_acerto === "acertado" ? "acertado" : "pendente";
+        const statusTexto = f.status_acerto === "acertado" ? "Acertado" : "Pendente";
+
+        tr.innerHTML = `
+          <td>${f.data || "-"}</td>
+          <td>${f.origem || "-"} → ${f.destino || "-"}</td>
+          <td>${dinheiro(f.valor_frete)}</td>
+          <td>${dinheiro(f.lucro)}</td>
+          <td>${dinheiro(f.parte_paulo)}</td>
+          <td>${dinheiro(f.parte_rapha)}</td>
+          <td><span class="status ${statusClass}">${statusTexto}</span></td>
+          <td>
+            <button class="secondary" onclick="alternarAcerto(${f.id}, '${f.status_acerto}')">Acerto</button>
+            <button class="danger" onclick="excluirFrete(${f.id})">Excluir</button>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function alternarAcerto(id, statusAtual) {
+      const novoStatus = statusAtual === "acertado" ? "pendente" : "acertado";
+
+      await fetch(`/api/fretes/${id}/acerto`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          status_acerto: novoStatus
+        })
+      });
+
+      await carregarFretes();
+    }
+
+    async function excluirFrete(id) {
+      const confirmar = confirm("Tem certeza que deseja excluir este frete?");
+      if (!confirmar) return;
+
+      await fetch(`/api/fretes/${id}`, {
+        method: "DELETE"
+      });
+
+      await carregarFretes();
+    }
+
+    async function acertarPendentes() {
+      const confirmar = confirm("Marcar todos os fretes pendentes como acertados?");
+      if (!confirmar) return;
+
+      await fetch("/api/fretes/acertar-pendentes", {
+        method: "PATCH"
+      });
+
+      await carregarFretes();
+    }
+
+    function limparEntradaBasica() {
+      el("frete").value = "";
+      el("destino").value = "";
+      el("distanciaIda").value = "";
+      el("distanciaVolta").value = "";
+      el("observacao").value = "";
+      calcularFrete();
+    }
+
+    function iniciar() {
+      el("data").value = hoje();
+
+      el("btnCalcular").addEventListener("click", calcularFrete);
+      el("btnSalvar").addEventListener("click", salvarFrete);
+      el("btnLimpar").addEventListener("click", limparEntradaBasica);
+      el("btnAcertarPendentes").addEventListener("click", acertarPendentes);
+
+      ids.forEach((id) => {
+        const campo = el(id);
+        if (!campo) return;
+
+        campo.addEventListener("input", calcularFrete);
+        campo.addEventListener("change", calcularFrete);
+      });
+
+      calcularFrete();
+      carregarFretes();
+    }
+
+    iniciar();
+  </script>
+</body>
+</html>
