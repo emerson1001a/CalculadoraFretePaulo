@@ -1,14 +1,22 @@
 const express = require("express");
 const Database = require("better-sqlite3");
 const path = require("path");
+const fs = require("fs");
 
 const app = express();
-const PORT = 3010;
+const PORT = process.env.PORT || 3010;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-const db = new Database(path.join(__dirname, "fretes.db"));
+const dataDir = path.join(__dirname, "data");
+
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
+const dbPath = process.env.DB_PATH || path.join(dataDir, "fretes.db");
+const db = new Database(dbPath);
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS fretes (
