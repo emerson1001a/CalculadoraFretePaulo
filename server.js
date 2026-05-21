@@ -289,6 +289,72 @@ Escreva no máximo 12 linhas.
     });
   }
 });
+app.post("/api/simulador-whatsapp", async (req, res) => {
+  try {
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({
+        ok: false,
+        erro: "OPENAI_API_KEY não configurada no ambiente."
+      });
+    }
+
+    const body = req.body || {};
+    const mensagem = (body.mensagem || "").trim();
+
+    if (!mensagem) {
+      return res.status(400).json({
+        ok: false,
+        erro: "Envie uma mensagem para o simulador."
+      });
+    }
+
+    const prompt = `
+Você é o assistente inteligente do projeto RODE com Lucro.
+
+Você está simulando uma conversa de WhatsApp com um motorista de caminhão.
+
+Objetivo:
+- Entender o que o motorista está dizendo.
+- Responder de forma simples, curta e útil.
+- Ajudar com frete, custos, manutenção, documentos, dúvidas operacionais e organização da rotina.
+- Quando o motorista passar dados de frete, organize as informações.
+- Quando faltar informação, pergunte apenas o próximo dado mais importante.
+- Não faça texto longo.
+- Não use linguagem técnica.
+- Não invente valores.
+- Não diga que está no WhatsApp real. Este é apenas um simulador.
+
+Estilo da resposta:
+- Português do Brasil.
+- Linguagem simples, como conversa de WhatsApp.
+- Tom prático e respeitoso.
+- Respostas curtas.
+- Pode usar listas pequenas quando ajudar.
+
+Mensagem recebida do motorista:
+"${mensagem}"
+
+Responda como se fosse o assistente do RODE com Lucro conversando com esse motorista.
+`;
+
+    const resposta = await openai.responses.create({
+      model: "gpt-4.1-mini",
+      input: prompt
+    });
+
+    res.json({
+      ok: true,
+      resposta: resposta.output_text
+    });
+  } catch (error) {
+    console.error("Erro no simulador WhatsApp:", error);
+
+    res.status(500).json({
+      ok: false,
+      erro: "Erro ao responder no simulador WhatsApp."
+    });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Calculadora rodando em http://localhost:${PORT}`);
 });
