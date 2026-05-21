@@ -268,81 +268,100 @@ Quais dados eu preciso informar para saber se um frete vale a pena?
     </div>
   </div>
 
-  <script>
-    const chatBox = document.getElementById("chatBox");
-    const mensagemInput = document.getElementById("mensagem");
-    const btnEnviar = document.getElementById("btnEnviar");
-    const statusEl = document.getElementById("status");
+<script>
+  const chatBox = document.getElementById("chatBox");
+  const mensagemInput = document.getElementById("mensagem");
+  const btnEnviar = document.getElementById("btnEnviar");
+  const statusEl = document.getElementById("status");
 
-    function adicionarMensagem(texto, tipo) {
-      const div = document.createElement("div");
-      div.className = "msg " + tipo;
-      div.textContent = texto;
-      chatBox.appendChild(div);
-      chatBox.scrollTop = chatBox.scrollHeight;
+  let historico = [];
+
+  function adicionarMensagem(texto, tipo) {
+    const div = document.createElement("div");
+    div.className = "msg " + tipo;
+    div.textContent = texto;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  function usarExemplo(elemento) {
+    mensagemInput.value = elemento.textContent.trim();
+    mensagemInput.focus();
+  }
+
+  function limparChat() {
+    chatBox.innerHTML = "";
+    historico = [];
+
+    adicionarMensagem(
+      "Olá! Sou o assistente do RODE com Lucro.\n\nDigite uma mensagem como se fosse um motorista no WhatsApp.",
+      "bot"
+    );
+
+    statusEl.textContent = "";
+    mensagemInput.focus();
+  }
+
+  async function enviarMensagem() {
+    const mensagem = mensagemInput.value.trim();
+
+    if (!mensagem) {
+      alert("Digite uma mensagem para testar.");
+      return;
     }
 
-    function usarExemplo(elemento) {
-      mensagemInput.value = elemento.textContent.trim();
-      mensagemInput.focus();
-    }
+    adicionarMensagem(mensagem, "user");
 
-    function limparChat() {
-      chatBox.innerHTML = "";
-      adicionarMensagem(
-        "Olá! Sou o assistente do RODE com Lucro.\n\nDigite uma mensagem como se fosse um motorista no WhatsApp.",
-        "bot"
-      );
-      statusEl.textContent = "";
-    }
+    historico.push({
+      papel: "motorista",
+      texto: mensagem
+    });
 
-    async function enviarMensagem() {
-      const mensagem = mensagemInput.value.trim();
+    mensagemInput.value = "";
+    btnEnviar.disabled = true;
+    statusEl.textContent = "A IA está respondendo...";
 
-      if (!mensagem) {
-        alert("Digite uma mensagem para testar.");
+    try {
+      const resposta = await fetch("/api/simulador-whatsapp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          mensagem,
+          historico
+        })
+      });
+
+      const dados = await resposta.json();
+
+      if (!resposta.ok || !dados.ok) {
+        adicionarMensagem(dados.erro || "Erro ao responder.", "bot");
         return;
       }
 
-      adicionarMensagem(mensagem, "user");
-      mensagemInput.value = "";
+      adicionarMensagem(dados.resposta, "bot");
 
-      btnEnviar.disabled = true;
-      statusEl.textContent = "A IA está respondendo...";
-
-      try {
-        const resposta = await fetch("/api/simulador-whatsapp", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ mensagem })
-        });
-
-        const dados = await resposta.json();
-
-        if (!resposta.ok || !dados.ok) {
-          adicionarMensagem(dados.erro || "Erro ao responder.", "bot");
-          return;
-        }
-
-        adicionarMensagem(dados.resposta, "bot");
-      } catch (erro) {
-        console.error(erro);
-        adicionarMensagem("Erro de conexão com o simulador. Tente novamente.", "bot");
-      } finally {
-        btnEnviar.disabled = false;
-        statusEl.textContent = "";
-        mensagemInput.focus();
-      }
+      historico.push({
+        papel: "assistente",
+        texto: dados.resposta
+      });
+    } catch (erro) {
+      console.error(erro);
+      adicionarMensagem("Erro de conexão com o simulador. Tente novamente.", "bot");
+    } finally {
+      btnEnviar.disabled = false;
+      statusEl.textContent = "";
+      mensagemInput.focus();
     }
+  }
 
-    mensagemInput.addEventListener("keydown", function(event) {
-      if (event.key === "Enter" && !event.shiftKey) {
-        event.preventDefault();
-        enviarMensagem();
-      }
-    });
-  </script>
+  mensagemInput.addEventListener("keydown", function(event) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      enviarMensagem();
+    }
+  });
+</script>
 </body>
 </html>
