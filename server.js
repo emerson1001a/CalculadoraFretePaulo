@@ -300,6 +300,7 @@ app.post("/api/simulador-whatsapp", async (req, res) => {
 
     const body = req.body || {};
     const mensagem = (body.mensagem || "").trim();
+    const historico = Array.isArray(body.historico) ? body.historico : [];
 
     if (!mensagem) {
       return res.status(400).json({
@@ -308,33 +309,53 @@ app.post("/api/simulador-whatsapp", async (req, res) => {
       });
     }
 
+    const historicoTexto = historico
+      .slice(-12)
+      .map((item) => {
+        const papel = item.papel === "assistente" ? "Assistente" : "Motorista";
+        return `${papel}: ${item.texto}`;
+      })
+      .join("\n");
+
     const prompt = `
 Você é o assistente inteligente do projeto RODE com Lucro.
 
 Você está simulando uma conversa de WhatsApp com um motorista de caminhão.
 
-Objetivo:
-- Entender o que o motorista está dizendo.
-- Responder de forma simples, curta e útil.
-- Ajudar com frete, custos, manutenção, documentos, dúvidas operacionais e organização da rotina.
-- Quando o motorista passar dados de frete, organize as informações.
-- Quando faltar informação, pergunte apenas o próximo dado mais importante.
-- Não faça texto longo.
-- Não use linguagem técnica.
+REGRAS IMPORTANTES:
+- Não pergunte qual é a carga neste primeiro momento.
+- A carga pode ser informação sensível, valiosa ou confidencial.
+- Se o motorista informar a carga espontaneamente, apenas aceite a informação de forma genérica.
+- Nunca peça quantidade, peso, tipo exato, valor da mercadoria ou detalhes da carga.
+- Para análise inicial do frete, priorize: origem, destino, valor do frete, distância total, volta vazia ou com carga, consumo do caminhão, preço do diesel, pedágio e outros custos.
+- Se o motorista mudar origem, destino, valor ou distância durante a conversa, considere a informação mais recente como a correta.
+- Não repita perguntas sobre dados que já foram informados no histórico.
+- Quando já tiver dados suficientes, faça um resumo parcial e pergunte apenas o próximo dado mais importante.
+- Se houver ambiguidade, peça confirmação de forma curta.
+- Se o motorista disser algo como "6,40 por km", pergunte se isso é custo total por km ou preço do diesel por litro.
 - Não invente valores.
-- Não diga que está no WhatsApp real. Este é apenas um simulador.
+- Não faça cálculo completo se faltarem dados essenciais.
+- Não faça texto longo.
+- Não use linguagem de consultoria.
+- Responda como conversa de WhatsApp: simples, direto e prático.
 
-Estilo da resposta:
-- Português do Brasil.
-- Linguagem simples, como conversa de WhatsApp.
-- Tom prático e respeitoso.
-- Respostas curtas.
-- Pode usar listas pequenas quando ajudar.
+DADOS ESSENCIAIS PARA CALCULAR UM FRETE:
+1. Origem
+2. Destino
+3. Valor do frete
+4. Distância total ou ida/volta
+5. Se volta vazio ou não
+6. Consumo do caminhão ou custo por km
+7. Preço do diesel ou custo operacional informado
+8. Pedágio, se houver
 
-Mensagem recebida do motorista:
+Histórico da conversa até agora:
+${historicoTexto || "Sem histórico anterior."}
+
+Nova mensagem do motorista:
 "${mensagem}"
 
-Responda como se fosse o assistente do RODE com Lucro conversando com esse motorista.
+Responda como o assistente do RODE com Lucro.
 `;
 
     const resposta = await openai.responses.create({
