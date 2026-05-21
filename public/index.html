@@ -356,9 +356,10 @@
           </div>
 
           <div class="btns">
-            <button id="btnCalcular" type="button">Recalcular agora</button>
-            <button id="btnSalvar" type="button">Salvar frete</button>
-            <button id="btnLimpar" type="button" class="secondary">Limpar entrada</button>
+           <button id="btnCalcular" type="button">Recalcular agora</button>
+<button id="btnSalvar" type="button">Salvar frete</button>
+<button id="btnAnalisarIA" type="button" class="secondary">Analisar frete com IA</button>
+<button id="btnLimpar" type="button" class="secondary">Limpar entrada</button>
           </div>
         </div>
       </div>
@@ -405,6 +406,10 @@
           <div class="note">
             Regra atual do acordo: Paulo e Rapha dividem o lucro líquido em 50% para cada um.
           </div>
+          <div class="note hidden" id="boxAnaliseIA">
+  <strong>Análise da IA</strong>
+  <div id="analiseIA" style="margin-top:8px; white-space:pre-wrap;"></div>
+</div>
         </div>
       </div>
     </div>
@@ -723,7 +728,42 @@
 
       return ultimoCalculo;
     }
+async function analisarFreteIA() {
+  const dados = calcularFrete();
 
+  if (!dados.valor_frete || !dados.km_ida) {
+    alert("Preencha pelo menos o valor do frete e a distância de ida antes de analisar.");
+    return;
+  }
+
+  const box = el("boxAnaliseIA");
+  const saida = el("analiseIA");
+
+  box.classList.remove("hidden");
+  saida.textContent = "Analisando frete com IA...";
+
+  try {
+    const resposta = await fetch("/api/analisar-frete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(dados)
+    });
+
+    const json = await resposta.json();
+
+    if (!json.ok) {
+      saida.textContent = json.erro || "Não foi possível analisar o frete.";
+      return;
+    }
+
+    saida.textContent = json.analise;
+  } catch (erro) {
+    console.error(erro);
+    saida.textContent = "Erro ao chamar a IA. Verifique o servidor e a chave da OpenAI.";
+  }
+}
     async function salvarFrete() {
       const dados = calcularFrete();
 
@@ -872,8 +912,9 @@
       el("data").value = hoje();
 
       el("btnCalcular").addEventListener("click", calcularFrete);
-      el("btnSalvar").addEventListener("click", salvarFrete);
-      el("btnLimpar").addEventListener("click", limparEntradaBasica);
+el("btnSalvar").addEventListener("click", salvarFrete);
+el("btnAnalisarIA").addEventListener("click", analisarFreteIA);
+el("btnLimpar").addEventListener("click", limparEntradaBasica);
       el("btnAcertarPendentes").addEventListener("click", acertarPendentes);
 
       ids.forEach((id) => {

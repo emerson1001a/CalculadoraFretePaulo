@@ -2,13 +2,16 @@ const express = require("express");
 const Database = require("better-sqlite3");
 const path = require("path");
 const fs = require("fs");
+const OpenAI = require("openai");
 
 const app = express();
 const PORT = process.env.PORT || 3010;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
-
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 const dataDir = path.join(__dirname, "data");
 
 if (!fs.existsSync(dataDir)) {
@@ -192,7 +195,100 @@ app.delete("/api/fretes/:id", (req, res) => {
 
   res.json({ ok: true });
 });
+app.post("/api/analisar-frete", async (req, res) => {
+  try {
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({
+        ok: false,
+        erro: "OPENAI_API_KEY não configurada no ambiente."
+      });
+    }
 
+    const frete = req.body || {};
+
+    const prompt = `
+Você é um consultor operacional de transporte rodoviário de cargas.
+
+Analise o frete abaixo com base nos números calculados pelo sistema.
+Não refaça os cálculos principais. Use os valores fornecidos.
+Se algum número parecer ruim ou incoerente, aponte como ponto de atenção.
+
+Dados do frete:
+- Data: ${frete.data || "-"}
+- Origem: ${frete.origem || "-"}
+- Destino: ${frete.destino || "-"}
+- Frete recebido: R$ ${frete.valor_frete || 0}
+- KM ida: ${frete.km_ida || 0}
+- KM volta considerada: ${frete.km_volta || 0}
+- KM total: ${frete.km_total || 0}
+- Custo diesel: R$ ${frete.custo_diesel || 0}
+- Custo ARLA: R$ ${frete.custo_arla || 0}
+- Custo manutenção: R$ ${frete.custo_manutencao || 0}
+- Custo depreciação: R$ ${frete.custo_depreciacao || 0}
+- Pedágio: R$ ${frete.pedagio || 0}
+- Outros custos: R$ ${frete.outros_custos || 0}
+- Custo total: R$ ${frete.custo_total || 0}
+- Lucro líquido: R$ ${frete.lucro || 0}
+- Margem: ${frete.margem || 0}%
+- Lucro por km: R$ ${frete.lucro_por_km || 0}
+- Parte Paulo 50%: R$ ${frete.parte_paulo || 0}
+- Parte Rapha 50%: R$ ${frete.parte_rapha || 0}
+
+Responda em português do Brasil, com linguagem simples, direta e prática, como se estivesse explicando para um caminhoneiro e para o dono do caminhão.
+
+Não use linguagem de consultoria.
+Não faça texto longo.
+Não use muitos termos técnicos.
+Não diga "margem considerada boa para o mercado", a menos que tenha certeza.
+Não invente média de mercado.
+Não refaça os cálculos.
+Use os números fornecidos pelo sistema.
+Considere que o consumo de ARLA informado pelo usuário é uma premissa operacional válida.
+Não critique o custo de ARLA apenas por parecer alto.
+Só alerte sobre ARLA se o valor estiver zerado, negativo ou claramente incompatível com os dados informados.
+Não comente manutenção e depreciação se os valores estiverem apenas sendo usados como parâmetros normais do cálculo.
+Só mencione manutenção, depreciação, diesel, ARLA ou pedágio quando algum deles for claramente o principal motivo de o frete estar ruim, apertado ou exigir atenção.
+Evite frases genéricas como "mantenha registro para evitar surpresas".
+Use exatamente esta estrutura curta:
+
+Resumo do frete
+Diga em uma frase se o frete está bom, aceitável, apertado ou ruim.
+
+Números principais
+Mostre:
+- Frete recebido
+- Custo total
+- Lucro líquido
+- Paulo fica com
+- Rapha fica com
+
+Ponto de atenção
+Fale no máximo dois pontos que merecem cuidado.
+
+Sugestão prática
+Dê uma orientação simples: aceitar, negociar melhor, conferir custos ou buscar retorno.
+
+Escreva no máximo 12 linhas.
+`;
+
+    const resposta = await openai.responses.create({
+      model: "gpt-4.1-mini",
+      input: prompt
+    });
+
+    res.json({
+      ok: true,
+      analise: resposta.output_text
+    });
+  } catch (error) {
+    console.error("Erro ao analisar frete com IA:", error);
+
+    res.status(500).json({
+      ok: false,
+      erro: "Erro ao analisar o frete com IA."
+    });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Calculadora rodando em http://localhost:${PORT}`);
 });
