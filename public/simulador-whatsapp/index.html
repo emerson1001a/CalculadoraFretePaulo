@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulador WhatsApp + IA | RODE com Lucro</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f1f5f9;
+      color: #111827;
+    }
+
+    .page {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .header {
+      background: #111827;
+      color: white;
+      border-radius: 18px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    }
+
+    .header h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+
+    .header p {
+      margin: 0;
+      color: #d1d5db;
+      line-height: 1.5;
+    }
+
+    .alerta {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+      padding: 14px 16px;
+      border-radius: 14px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.3fr 0.7fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 800px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: white;
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    .chat-box {
+      height: 460px;
+      overflow-y: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 14px;
+      background: #f8fafc;
+      margin-bottom: 14px;
+    }
+
+    .msg {
+      max-width: 82%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      margin-bottom: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      font-size: 15px;
+    }
+
+    .msg.user {
+      margin-left: auto;
+      background: #dcfce7;
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg.bot {
+      margin-right: auto;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-bottom-left-radius: 4px;
+    }
+
+    .input-area {
+      display: flex;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 74px;
+      resize: vertical;
+      border: 1px solid #d1d5db;
+      border-radius: 14px;
+      padding: 12px;
+      font-size: 15px;
+      font-family: Arial, Helvetica, sans-serif;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: #111827;
+    }
+
+    button {
+      border: none;
+      border-radius: 14px;
+      padding: 12px 18px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      background: #111827;
+      color: white;
+      min-width: 120px;
+    }
+
+    button:hover {
+      background: #1f2937;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .side h2 {
+      margin-top: 0;
+      font-size: 20px;
+    }
+
+    .side p {
+      color: #4b5563;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .exemplo {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      padding: 12px;
+      border-radius: 12px;
+      margin-bottom: 10px;
+      font-size: 14px;
+      cursor: pointer;
+      line-height: 1.4;
+    }
+
+    .exemplo:hover {
+      background: #eef2ff;
+    }
+
+    .limpar {
+      background: #e5e7eb;
+      color: #111827;
+      margin-top: 10px;
+      width: 100%;
+    }
+
+    .status {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 8px;
+    }
+
+    .voltar {
+      display: inline-block;
+      margin-top: 16px;
+      color: #2563eb;
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    .voltar:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <div class="header">
+      <h1>Simulador WhatsApp + IA</h1>
+      <p>
+        Ambiente de teste do RODE com Lucro. Digite como se fosse um motorista conversando pelo WhatsApp.
+      </p>
+    </div>
+
+    <div class="alerta">
+      <strong>Aviso:</strong> este ainda não é o WhatsApp real. É apenas um simulador para testar a conversa com IA.
+      Não inserir documentos, dados bancários ou informações pessoais sensíveis.
+    </div>
+
+    <div class="layout">
+      <div class="card">
+        <div id="chatBox" class="chat-box">
+          <div class="msg bot">
+Olá! Sou o assistente do RODE com Lucro.
+
+Digite uma mensagem como se fosse um motorista no WhatsApp.
+
+Exemplo:
+“Quero calcular um frete de São Paulo para Campinas. Vou receber 1800 reais, rodar 240 km e pagar 90 de pedágio.”
+          </div>
+        </div>
+
+        <div class="input-area">
+          <textarea id="mensagem" placeholder="Digite aqui a mensagem do motorista..."></textarea>
+          <button id="btnEnviar" onclick="enviarMensagem()">Enviar</button>
+        </div>
+
+        <div id="status" class="status"></div>
+      </div>
+
+      <div class="card side">
+        <h2>Exemplos para testar</h2>
+        <p>Clique em um exemplo para preencher a mensagem automaticamente.</p>
+
+        <div class="exemplo" onclick="usarExemplo(this)">
+Quero calcular um frete de São Paulo para Campinas. Vou receber 1800 reais, rodar 240 km no total e pagar 90 reais de pedágio.
+        </div>
+
+        <div class="exemplo" onclick="usarExemplo(this)">
+Vou fazer um frete de Ribeirão Preto para Santos. O frete paga 4200 reais. Vou rodar 780 km. O diesel está 6 reais.
+        </div>
+
+        <div class="exemplo" onclick="usarExemplo(this)">
+Meu tacógrafo vence mês que vem. Como eu posso me organizar para não esquecer?
+        </div>
+
+        <div class="exemplo" onclick="usarExemplo(this)">
+Troquei óleo com 480 mil km. Quero lembrar de trocar de novo com 500 mil km.
+        </div>
+
+        <div class="exemplo" onclick="usarExemplo(this)">
+Quais dados eu preciso informar para saber se um frete vale a pena?
+        </div>
+
+        <button class="limpar" onclick="limparChat()">Limpar conversa</button>
+
+        <a class="voltar" href="/">Voltar para a calculadora</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const chatBox = document.getElementById("chatBox");
+    const mensagemInput = document.getElementById("mensagem");
+    const btnEnviar = document.getElementById("btnEnviar");
+    const statusEl = document.getElementById("status");
+
+    function adicionarMensagem(texto, tipo) {
+      const div = document.createElement("div");
+      div.className = "msg " + tipo;
+      div.textContent = texto;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function usarExemplo(elemento) {
+      mensagemInput.value = elemento.textContent.trim();
+      mensagemInput.focus();
+    }
+
+    function limparChat() {
+      chatBox.innerHTML = "";
+      adicionarMensagem(
+        "Olá! Sou o assistente do RODE com Lucro.\n\nDigite uma mensagem como se fosse um motorista no WhatsApp.",
+        "bot"
+      );
+      statusEl.textContent = "";
+    }
+
+    async function enviarMensagem() {
+      const mensagem = mensagemInput.value.trim();
+
+      if (!mensagem) {
+        alert("Digite uma mensagem para testar.");
+        return;
+      }
+
+      adicionarMensagem(mensagem, "user");
+      mensagemInput.value = "";
+
+      btnEnviar.disabled = true;
+      statusEl.textContent = "A IA está respondendo...";
+
+      try {
+        const resposta = await fetch("/api/simulador-whatsapp", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ mensagem })
+        });
+
+        const dados = await resposta.json();
+
+        if (!resposta.ok || !dados.ok) {
+          adicionarMensagem(dados.erro || "Erro ao responder.", "bot");
+          return;
+        }
+
+        adicionarMensagem(dados.resposta, "bot");
+      } catch (erro) {
+        console.error(erro);
+        adicionarMensagem("Erro de conexão com o simulador. Tente novamente.", "bot");
+      } finally {
+        btnEnviar.disabled = false;
+        statusEl.textContent = "";
+        mensagemInput.focus();
+      }
+    }
+
+    mensagemInput.addEventListener("keydown", function(event) {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        enviarMensagem();
+      }
+    });
+  </script>
+</body>
+</html>
