@@ -218,7 +218,14 @@
       border-collapse: collapse;
       margin-top: 12px;
     }
+.totalRow {
+  background: rgba(56,189,248,.10);
+  font-weight: 900;
+}
 
+.totalRow td {
+  border-top: 2px solid rgba(56,189,248,.35);
+}
     th, td {
       padding: 10px;
       border-bottom: 1px solid var(--line);
@@ -376,7 +383,6 @@
               <div class="k">Lucro líquido</div>
               <div class="v" id="lucro">R$ 0,00</div>
             </div>
-
             <div class="metric">
               <div class="k">Margem</div>
               <div class="v" id="margem">0,00%</div>
@@ -509,6 +515,16 @@
           </div>
 
           <div class="metric">
+            <div class="k">Total manutenção</div>
+            <div class="v" id="totalManutencao">R$ 0,00</div>
+          </div>
+
+          <div class="metric">
+            <div class="k">Total depreciação</div>
+            <div class="v" id="totalDepreciacao">R$ 0,00</div>
+          </div>
+
+          <div class="metric">
             <div class="k">Paulo a receber</div>
             <div class="v goodText" id="totalPaulo">R$ 0,00</div>
           </div>
@@ -534,18 +550,25 @@
       <div class="cardBody">
         <div class="tableWrap">
           <table>
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Rota</th>
-                <th>Frete</th>
-                <th>Lucro</th>
-                <th>Paulo</th>
-                <th>Rapha</th>
-                <th>Status</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
+          <thead>
+  <tr>
+    <th>Data</th>
+    <th>Rota</th>
+    <th>Frete</th>
+    <th>Diesel</th>
+    <th>ARLA</th>
+    <th>Manutenção</th>
+    <th>Depreciação</th>
+    <th>Pedágio</th>
+    <th>Outros</th>
+    <th>Custo total</th>
+    <th>Lucro</th>
+    <th>Paulo</th>
+    <th>Rapha</th>
+    <th>Status</th>
+    <th>Ações</th>
+  </tr>
+</thead>
             <tbody id="historico"></tbody>
           </table>
         </div>
@@ -799,30 +822,35 @@ async function analisarFreteIA() {
       renderHistorico();
     }
 
-    function renderResumoGeral() {
-      const total = fretes.reduce((acc, f) => {
-        acc.faturamento += numero(f.valor_frete);
-        acc.lucro += numero(f.lucro);
+   function renderResumoGeral() {
+  const total = fretes.reduce((acc, f) => {
+    acc.faturamento += numero(f.valor_frete);
+    acc.lucro += numero(f.lucro);
+    acc.manutencao += numero(f.custo_manutencao);
+    acc.depreciacao += numero(f.custo_depreciacao);
 
-        if (f.status_acerto === "pendente") {
-          acc.paulo += numero(f.parte_paulo);
-          acc.rapha += numero(f.parte_rapha);
-        }
-
-        return acc;
-      }, {
-        faturamento: 0,
-        lucro: 0,
-        paulo: 0,
-        rapha: 0
-      });
-
-      el("totalFaturamento").textContent = dinheiro(total.faturamento);
-      el("totalLucro").textContent = dinheiro(total.lucro);
-      el("totalPaulo").textContent = dinheiro(total.paulo);
-      el("totalRapha").textContent = dinheiro(total.rapha);
+    if (f.status_acerto === "pendente") {
+      acc.paulo += numero(f.parte_paulo);
+      acc.rapha += numero(f.parte_rapha);
     }
 
+    return acc;
+  }, {
+    faturamento: 0,
+    lucro: 0,
+    manutencao: 0,
+    depreciacao: 0,
+    paulo: 0,
+    rapha: 0
+  });
+
+  el("totalFaturamento").textContent = dinheiro(total.faturamento);
+  el("totalLucro").textContent = dinheiro(total.lucro);
+  el("totalManutencao").textContent = dinheiro(total.manutencao);
+  el("totalDepreciacao").textContent = dinheiro(total.depreciacao);
+  el("totalPaulo").textContent = dinheiro(total.paulo);
+  el("totalRapha").textContent = dinheiro(total.rapha);
+}
     function renderHistorico() {
       const tbody = el("historico");
       tbody.innerHTML = "";
@@ -830,12 +858,39 @@ async function analisarFreteIA() {
       if (!fretes.length) {
         const tr = document.createElement("tr");
         const td = document.createElement("td");
-        td.colSpan = 8;
+        td.colSpan = 15;
         td.textContent = "Nenhum frete salvo ainda.";
         tr.appendChild(td);
         tbody.appendChild(tr);
         return;
       }
+
+      const total = fretes.reduce((acc, f) => {
+        acc.valor_frete += numero(f.valor_frete);
+        acc.custo_diesel += numero(f.custo_diesel);
+        acc.custo_arla += numero(f.custo_arla);
+        acc.custo_manutencao += numero(f.custo_manutencao);
+        acc.custo_depreciacao += numero(f.custo_depreciacao);
+        acc.pedagio += numero(f.pedagio);
+        acc.outros_custos += numero(f.outros_custos);
+        acc.custo_total += numero(f.custo_total);
+        acc.lucro += numero(f.lucro);
+        acc.parte_paulo += numero(f.parte_paulo);
+        acc.parte_rapha += numero(f.parte_rapha);
+        return acc;
+      }, {
+        valor_frete: 0,
+        custo_diesel: 0,
+        custo_arla: 0,
+        custo_manutencao: 0,
+        custo_depreciacao: 0,
+        pedagio: 0,
+        outros_custos: 0,
+        custo_total: 0,
+        lucro: 0,
+        parte_paulo: 0,
+        parte_rapha: 0
+      });
 
       fretes.forEach((f) => {
         const tr = document.createElement("tr");
@@ -847,6 +902,13 @@ async function analisarFreteIA() {
           <td>${f.data || "-"}</td>
           <td>${f.origem || "-"} → ${f.destino || "-"}</td>
           <td>${dinheiro(f.valor_frete)}</td>
+          <td>${dinheiro(f.custo_diesel)}</td>
+          <td>${dinheiro(f.custo_arla)}</td>
+          <td>${dinheiro(f.custo_manutencao)}</td>
+          <td>${dinheiro(f.custo_depreciacao)}</td>
+          <td>${dinheiro(f.pedagio)}</td>
+          <td>${dinheiro(f.outros_custos)}</td>
+          <td>${dinheiro(f.custo_total)}</td>
           <td>${dinheiro(f.lucro)}</td>
           <td>${dinheiro(f.parte_paulo)}</td>
           <td>${dinheiro(f.parte_rapha)}</td>
@@ -859,6 +921,28 @@ async function analisarFreteIA() {
 
         tbody.appendChild(tr);
       });
+
+      const trTotal = document.createElement("tr");
+      trTotal.className = "totalRow";
+
+      trTotal.innerHTML = `
+        <td colspan="2">TOTAL</td>
+        <td>${dinheiro(total.valor_frete)}</td>
+        <td>${dinheiro(total.custo_diesel)}</td>
+        <td>${dinheiro(total.custo_arla)}</td>
+        <td>${dinheiro(total.custo_manutencao)}</td>
+        <td>${dinheiro(total.custo_depreciacao)}</td>
+        <td>${dinheiro(total.pedagio)}</td>
+        <td>${dinheiro(total.outros_custos)}</td>
+        <td>${dinheiro(total.custo_total)}</td>
+        <td>${dinheiro(total.lucro)}</td>
+        <td>${dinheiro(total.parte_paulo)}</td>
+        <td>${dinheiro(total.parte_rapha)}</td>
+        <td>-</td>
+        <td>-</td>
+      `;
+
+      tbody.appendChild(trTotal);
     }
 
     async function alternarAcerto(id, statusAtual) {
