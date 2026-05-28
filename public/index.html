@@ -865,32 +865,46 @@ async function analisarFreteIA() {
         return;
       }
 
-      const total = fretes.reduce((acc, f) => {
-        acc.valor_frete += numero(f.valor_frete);
-        acc.custo_diesel += numero(f.custo_diesel);
-        acc.custo_arla += numero(f.custo_arla);
-        acc.custo_manutencao += numero(f.custo_manutencao);
-        acc.custo_depreciacao += numero(f.custo_depreciacao);
-        acc.pedagio += numero(f.pedagio);
-        acc.outros_custos += numero(f.outros_custos);
-        acc.custo_total += numero(f.custo_total);
-        acc.lucro += numero(f.lucro);
-        acc.parte_paulo += numero(f.parte_paulo);
-        acc.parte_rapha += numero(f.parte_rapha);
-        return acc;
-      }, {
-        valor_frete: 0,
-        custo_diesel: 0,
-        custo_arla: 0,
-        custo_manutencao: 0,
-        custo_depreciacao: 0,
-        pedagio: 0,
-        outros_custos: 0,
-        custo_total: 0,
-        lucro: 0,
-        parte_paulo: 0,
-        parte_rapha: 0
-      });
+      function criarTotalVazio() {
+  return {
+    valor_frete: 0,
+    custo_diesel: 0,
+    custo_arla: 0,
+    custo_manutencao: 0,
+    custo_depreciacao: 0,
+    pedagio: 0,
+    outros_custos: 0,
+    custo_total: 0,
+    lucro: 0,
+    parte_paulo: 0,
+    parte_rapha: 0
+  };
+}
+
+function somarFreteNoTotal(acc, f) {
+  acc.valor_frete += numero(f.valor_frete);
+  acc.custo_diesel += numero(f.custo_diesel);
+  acc.custo_arla += numero(f.custo_arla);
+  acc.custo_manutencao += numero(f.custo_manutencao);
+  acc.custo_depreciacao += numero(f.custo_depreciacao);
+  acc.pedagio += numero(f.pedagio);
+  acc.outros_custos += numero(f.outros_custos);
+  acc.custo_total += numero(f.custo_total);
+  acc.lucro += numero(f.lucro);
+  acc.parte_paulo += numero(f.parte_paulo);
+  acc.parte_rapha += numero(f.parte_rapha);
+}
+
+const totalPendentes = criarTotalVazio();
+const totalAcertados = criarTotalVazio();
+
+fretes.forEach((f) => {
+  if (f.status_acerto === "acertado") {
+    somarFreteNoTotal(totalAcertados, f);
+  } else {
+    somarFreteNoTotal(totalPendentes, f);
+  }
+});
 
       fretes.forEach((f) => {
         const tr = document.createElement("tr");
@@ -922,27 +936,32 @@ async function analisarFreteIA() {
         tbody.appendChild(tr);
       });
 
-      const trTotal = document.createElement("tr");
-      trTotal.className = "totalRow";
+      function criarLinhaTotal(nome, total) {
+  const tr = document.createElement("tr");
+  tr.className = "totalRow";
 
-      trTotal.innerHTML = `
-        <td colspan="2">TOTAL</td>
-        <td>${dinheiro(total.valor_frete)}</td>
-        <td>${dinheiro(total.custo_diesel)}</td>
-        <td>${dinheiro(total.custo_arla)}</td>
-        <td>${dinheiro(total.custo_manutencao)}</td>
-        <td>${dinheiro(total.custo_depreciacao)}</td>
-        <td>${dinheiro(total.pedagio)}</td>
-        <td>${dinheiro(total.outros_custos)}</td>
-        <td>${dinheiro(total.custo_total)}</td>
-        <td>${dinheiro(total.lucro)}</td>
-        <td>${dinheiro(total.parte_paulo)}</td>
-        <td>${dinheiro(total.parte_rapha)}</td>
-        <td>-</td>
-        <td>-</td>
-      `;
+  tr.innerHTML = `
+    <td colspan="2">${nome}</td>
+    <td>${dinheiro(total.valor_frete)}</td>
+    <td>${dinheiro(total.custo_diesel)}</td>
+    <td>${dinheiro(total.custo_arla)}</td>
+    <td>${dinheiro(total.custo_manutencao)}</td>
+    <td>${dinheiro(total.custo_depreciacao)}</td>
+    <td>${dinheiro(total.pedagio)}</td>
+    <td>${dinheiro(total.outros_custos)}</td>
+    <td>${dinheiro(total.custo_total)}</td>
+    <td>${dinheiro(total.lucro)}</td>
+    <td>${dinheiro(total.parte_paulo)}</td>
+    <td>${dinheiro(total.parte_rapha)}</td>
+    <td>-</td>
+    <td>-</td>
+  `;
 
-      tbody.appendChild(trTotal);
+  return tr;
+}
+
+tbody.appendChild(criarLinhaTotal("TOTAL PENDENTES", totalPendentes));
+tbody.appendChild(criarLinhaTotal("TOTAL ACERTADOS", totalAcertados));
     }
 
     async function alternarAcerto(id, statusAtual) {
