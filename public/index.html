@@ -1021,14 +1021,24 @@ async function arquivarFrete(id) {
       await carregarFretes();
     }
 
+function limparAnaliseIA() {
+  const box = el("boxAnaliseIA");
+  const saida = el("analiseIA");
+
+  if (box) box.classList.add("hidden");
+  if (saida) saida.textContent = "";
+}
+    
     function limparEntradaBasica() {
-      el("frete").value = "";
-      el("destino").value = "";
-      el("distanciaIda").value = "";
-      el("distanciaVolta").value = "";
-      el("observacao").value = "";
-      calcularFrete();
-    }
+  el("frete").value = "";
+  el("destino").value = "";
+  el("distanciaIda").value = "";
+  el("distanciaVolta").value = "";
+  el("observacao").value = "";
+
+  limparAnaliseIA();
+  calcularFrete();
+}
 
     function toggleCard(id, botao) {
   const corpo = el(id);
