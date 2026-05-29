@@ -218,7 +218,14 @@
       border-collapse: collapse;
       margin-top: 12px;
     }
+.totalRow {
+  background: rgba(56,189,248,.10);
+  font-weight: 900;
+}
 
+.totalRow td {
+  border-top: 2px solid rgba(56,189,248,.35);
+}
     th, td {
       padding: 10px;
       border-bottom: 1px solid var(--line);
@@ -376,7 +383,6 @@
               <div class="k">Lucro líquido</div>
               <div class="v" id="lucro">R$ 0,00</div>
             </div>
-
             <div class="metric">
               <div class="k">Margem</div>
               <div class="v" id="margem">0,00%</div>
@@ -509,6 +515,16 @@
           </div>
 
           <div class="metric">
+            <div class="k">Total manutenção</div>
+            <div class="v" id="totalManutencao">R$ 0,00</div>
+          </div>
+
+          <div class="metric">
+            <div class="k">Total depreciação</div>
+            <div class="v" id="totalDepreciacao">R$ 0,00</div>
+          </div>
+
+          <div class="metric">
             <div class="k">Paulo a receber</div>
             <div class="v goodText" id="totalPaulo">R$ 0,00</div>
           </div>
@@ -519,33 +535,44 @@
           </div>
         </div>
 
-        <div class="btns">
-          <button id="btnAcertarPendentes" type="button" class="secondary">Marcar todos pendentes como acertados</button>
-        </div>
+
       </div>
     </div>
 
     <div class="card sectionGap">
-      <div class="cardHead">
-        <div class="cardTitle">Histórico de fretes</div>
-        <div class="small">Pendentes e acertados</div>
-      </div>
+<div class="cardHead">
+  <div class="cardTitle">Histórico de fretes</div>
+
+  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+    <div class="small">Pendentes e acertados</div>
+    <button id="btnAcertarPendentes" type="button" class="secondary">
+      Marcar todos pendentes como acertados
+    </button>
+  </div>
+</div>
 
       <div class="cardBody">
         <div class="tableWrap">
           <table>
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Rota</th>
-                <th>Frete</th>
-                <th>Lucro</th>
-                <th>Paulo</th>
-                <th>Rapha</th>
-                <th>Status</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
+          <thead>
+  <tr>
+    <th>Data</th>
+    <th>Rota</th>
+    <th>Frete</th>
+    <th>Diesel</th>
+    <th>ARLA</th>
+    <th>Manutenção</th>
+    <th>Depreciação</th>
+    <th>Pedágio</th>
+    <th>Outros</th>
+    <th>Custo total</th>
+    <th>Lucro</th>
+    <th>Paulo</th>
+    <th>Rapha</th>
+    <th>Status</th>
+    <th>Ações</th>
+  </tr>
+</thead>
             <tbody id="historico"></tbody>
           </table>
         </div>
@@ -799,30 +826,35 @@ async function analisarFreteIA() {
       renderHistorico();
     }
 
-    function renderResumoGeral() {
-      const total = fretes.reduce((acc, f) => {
-        acc.faturamento += numero(f.valor_frete);
-        acc.lucro += numero(f.lucro);
+   function renderResumoGeral() {
+  const total = fretes.reduce((acc, f) => {
+    acc.faturamento += numero(f.valor_frete);
+    acc.lucro += numero(f.lucro);
+    acc.manutencao += numero(f.custo_manutencao);
+    acc.depreciacao += numero(f.custo_depreciacao);
 
-        if (f.status_acerto === "pendente") {
-          acc.paulo += numero(f.parte_paulo);
-          acc.rapha += numero(f.parte_rapha);
-        }
-
-        return acc;
-      }, {
-        faturamento: 0,
-        lucro: 0,
-        paulo: 0,
-        rapha: 0
-      });
-
-      el("totalFaturamento").textContent = dinheiro(total.faturamento);
-      el("totalLucro").textContent = dinheiro(total.lucro);
-      el("totalPaulo").textContent = dinheiro(total.paulo);
-      el("totalRapha").textContent = dinheiro(total.rapha);
+    if (f.status_acerto === "pendente") {
+      acc.paulo += numero(f.parte_paulo);
+      acc.rapha += numero(f.parte_rapha);
     }
 
+    return acc;
+  }, {
+    faturamento: 0,
+    lucro: 0,
+    manutencao: 0,
+    depreciacao: 0,
+    paulo: 0,
+    rapha: 0
+  });
+
+  el("totalFaturamento").textContent = dinheiro(total.faturamento);
+  el("totalLucro").textContent = dinheiro(total.lucro);
+  el("totalManutencao").textContent = dinheiro(total.manutencao);
+  el("totalDepreciacao").textContent = dinheiro(total.depreciacao);
+  el("totalPaulo").textContent = dinheiro(total.paulo);
+  el("totalRapha").textContent = dinheiro(total.rapha);
+}
     function renderHistorico() {
       const tbody = el("historico");
       tbody.innerHTML = "";
@@ -830,12 +862,53 @@ async function analisarFreteIA() {
       if (!fretes.length) {
         const tr = document.createElement("tr");
         const td = document.createElement("td");
-        td.colSpan = 8;
+        td.colSpan = 15;
         td.textContent = "Nenhum frete salvo ainda.";
         tr.appendChild(td);
         tbody.appendChild(tr);
         return;
       }
+
+      function criarTotalVazio() {
+  return {
+    valor_frete: 0,
+    custo_diesel: 0,
+    custo_arla: 0,
+    custo_manutencao: 0,
+    custo_depreciacao: 0,
+    pedagio: 0,
+    outros_custos: 0,
+    custo_total: 0,
+    lucro: 0,
+    parte_paulo: 0,
+    parte_rapha: 0
+  };
+}
+
+function somarFreteNoTotal(acc, f) {
+  acc.valor_frete += numero(f.valor_frete);
+  acc.custo_diesel += numero(f.custo_diesel);
+  acc.custo_arla += numero(f.custo_arla);
+  acc.custo_manutencao += numero(f.custo_manutencao);
+  acc.custo_depreciacao += numero(f.custo_depreciacao);
+  acc.pedagio += numero(f.pedagio);
+  acc.outros_custos += numero(f.outros_custos);
+  acc.custo_total += numero(f.custo_total);
+  acc.lucro += numero(f.lucro);
+  acc.parte_paulo += numero(f.parte_paulo);
+  acc.parte_rapha += numero(f.parte_rapha);
+}
+
+const totalPendentes = criarTotalVazio();
+const totalAcertados = criarTotalVazio();
+
+fretes.forEach((f) => {
+  if (f.status_acerto === "acertado") {
+    somarFreteNoTotal(totalAcertados, f);
+  } else {
+    somarFreteNoTotal(totalPendentes, f);
+  }
+});
 
       fretes.forEach((f) => {
         const tr = document.createElement("tr");
@@ -843,22 +916,60 @@ async function analisarFreteIA() {
         const statusClass = f.status_acerto === "acertado" ? "acertado" : "pendente";
         const statusTexto = f.status_acerto === "acertado" ? "Acertado" : "Pendente";
 
+        const botaoArquivar = f.status_acerto === "acertado"
+  ? `<button class="secondary" onclick="arquivarFrete(${f.id})">Arquivar</button>`
+  : "";
         tr.innerHTML = `
           <td>${f.data || "-"}</td>
           <td>${f.origem || "-"} → ${f.destino || "-"}</td>
           <td>${dinheiro(f.valor_frete)}</td>
+          <td>${dinheiro(f.custo_diesel)}</td>
+          <td>${dinheiro(f.custo_arla)}</td>
+          <td>${dinheiro(f.custo_manutencao)}</td>
+          <td>${dinheiro(f.custo_depreciacao)}</td>
+          <td>${dinheiro(f.pedagio)}</td>
+          <td>${dinheiro(f.outros_custos)}</td>
+          <td>${dinheiro(f.custo_total)}</td>
           <td>${dinheiro(f.lucro)}</td>
           <td>${dinheiro(f.parte_paulo)}</td>
           <td>${dinheiro(f.parte_rapha)}</td>
           <td><span class="status ${statusClass}">${statusTexto}</span></td>
-          <td>
-            <button class="secondary" onclick="alternarAcerto(${f.id}, '${f.status_acerto}')">Acerto</button>
-            <button class="danger" onclick="excluirFrete(${f.id})">Excluir</button>
-          </td>
+<td>
+  <button class="secondary" onclick="alternarAcerto(${f.id}, '${f.status_acerto}')">Acerto</button>
+  ${botaoArquivar}
+  <button class="danger" onclick="excluirFrete(${f.id})">Excluir</button>
+</td>
         `;
 
         tbody.appendChild(tr);
       });
+
+      function criarLinhaTotal(nome, total) {
+  const tr = document.createElement("tr");
+  tr.className = "totalRow";
+
+  tr.innerHTML = `
+    <td colspan="2">${nome}</td>
+    <td>${dinheiro(total.valor_frete)}</td>
+    <td>${dinheiro(total.custo_diesel)}</td>
+    <td>${dinheiro(total.custo_arla)}</td>
+    <td>${dinheiro(total.custo_manutencao)}</td>
+    <td>${dinheiro(total.custo_depreciacao)}</td>
+    <td>${dinheiro(total.pedagio)}</td>
+    <td>${dinheiro(total.outros_custos)}</td>
+    <td>${dinheiro(total.custo_total)}</td>
+    <td>${dinheiro(total.lucro)}</td>
+    <td>${dinheiro(total.parte_paulo)}</td>
+    <td>${dinheiro(total.parte_rapha)}</td>
+    <td>-</td>
+    <td>-</td>
+  `;
+
+  return tr;
+}
+
+tbody.appendChild(criarLinhaTotal("TOTAL PENDENTES", totalPendentes));
+tbody.appendChild(criarLinhaTotal("TOTAL ACERTADOS", totalAcertados));
     }
 
     async function alternarAcerto(id, statusAtual) {
@@ -877,6 +988,17 @@ async function analisarFreteIA() {
       await carregarFretes();
     }
 
+async function arquivarFrete(id) {
+  const confirmar = confirm("Arquivar este frete? Ele sairá da tela principal, mas continuará salvo no banco.");
+  if (!confirmar) return;
+
+  await fetch(`/api/fretes/${id}/arquivar`, {
+    method: "PATCH"
+  });
+
+  await carregarFretes();
+}
+    
     async function excluirFrete(id) {
       const confirmar = confirm("Tem certeza que deseja excluir este frete?");
       if (!confirmar) return;
