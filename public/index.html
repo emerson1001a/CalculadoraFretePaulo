@@ -916,6 +916,9 @@ fretes.forEach((f) => {
         const statusClass = f.status_acerto === "acertado" ? "acertado" : "pendente";
         const statusTexto = f.status_acerto === "acertado" ? "Acertado" : "Pendente";
 
+        const botaoArquivar = f.status_acerto === "acertado"
+  ? `<button class="secondary" onclick="arquivarFrete(${f.id})">Arquivar</button>`
+  : "";
         tr.innerHTML = `
           <td>${f.data || "-"}</td>
           <td>${f.origem || "-"} → ${f.destino || "-"}</td>
@@ -931,10 +934,11 @@ fretes.forEach((f) => {
           <td>${dinheiro(f.parte_paulo)}</td>
           <td>${dinheiro(f.parte_rapha)}</td>
           <td><span class="status ${statusClass}">${statusTexto}</span></td>
-          <td>
-            <button class="secondary" onclick="alternarAcerto(${f.id}, '${f.status_acerto}')">Acerto</button>
-            <button class="danger" onclick="excluirFrete(${f.id})">Excluir</button>
-          </td>
+<td>
+  <button class="secondary" onclick="alternarAcerto(${f.id}, '${f.status_acerto}')">Acerto</button>
+  ${botaoArquivar}
+  <button class="danger" onclick="excluirFrete(${f.id})">Excluir</button>
+</td>
         `;
 
         tbody.appendChild(tr);
@@ -984,6 +988,17 @@ tbody.appendChild(criarLinhaTotal("TOTAL ACERTADOS", totalAcertados));
       await carregarFretes();
     }
 
+async function arquivarFrete(id) {
+  const confirmar = confirm("Arquivar este frete? Ele sairá da tela principal, mas continuará salvo no banco.");
+  if (!confirmar) return;
+
+  await fetch(`/api/fretes/${id}/arquivar`, {
+    method: "PATCH"
+  });
+
+  await carregarFretes();
+}
+    
     async function excluirFrete(id) {
       const confirmar = confirm("Tem certeza que deseja excluir este frete?");
       if (!confirmar) return;
