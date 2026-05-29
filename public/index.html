@@ -421,12 +421,12 @@
     </div>
 
     <div class="card sectionGap">
-      <div class="cardHead">
-        <div class="cardTitle">Parâmetros do caminhão</div>
-        <div class="small">Caminhão do Paulo</div>
-      </div>
+  <div class="cardHead">
+    <div class="cardTitle">Parâmetros do caminhão</div>
+    <button type="button" class="secondary" onclick="toggleCard('parametrosBody', this)">Mostrar</button>
+  </div>
 
-      <div class="cardBody">
+  <div class="cardBody hidden" id="parametrosBody">
         <div class="formGrid">
           <div>
             <label for="consumoDiesel">Consumo diesel (km/L)</label>
@@ -476,12 +476,12 @@
     </div>
 
     <div class="card sectionGap">
-      <div class="cardHead">
-        <div class="cardTitle">Detalhamento do cálculo</div>
-        <div class="small">Custos considerados</div>
-      </div>
+  <div class="cardHead">
+    <div class="cardTitle">Detalhamento do cálculo</div>
+    <button type="button" class="secondary" onclick="toggleCard('detalhamentoBody', this)">Mostrar</button>
+  </div>
 
-      <div class="cardBody">
+  <div class="cardBody hidden" id="detalhamentoBody">
         <div class="tableWrap">
           <table>
             <thead>
@@ -1030,6 +1030,21 @@ async function arquivarFrete(id) {
       calcularFrete();
     }
 
+    function toggleCard(id, botao) {
+  const corpo = el(id);
+  if (!corpo) return;
+
+  const estaFechado = corpo.classList.contains("hidden");
+
+  if (estaFechado) {
+    corpo.classList.remove("hidden");
+    botao.textContent = "Ocultar";
+  } else {
+    corpo.classList.add("hidden");
+    botao.textContent = "Mostrar";
+  }
+}
+    
     function iniciar() {
       el("data").value = hoje();
 
