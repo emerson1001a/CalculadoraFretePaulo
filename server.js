@@ -51,6 +51,16 @@ db.exec(`
     criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )
 `);
+try {
+  db.exec(`
+    ALTER TABLE fretes
+    ADD COLUMN arquivado INTEGER NOT NULL DEFAULT 0
+  `);
+} catch (erro) {
+  if (!String(erro.message).includes("duplicate column name")) {
+    throw erro;
+  }
+}
 
 function numero(valor) {
   const n = Number(valor);
@@ -59,7 +69,12 @@ function numero(valor) {
 
 app.get("/api/fretes", (req, res) => {
   const fretes = db
-    .prepare("SELECT * FROM fretes ORDER BY data DESC, id DESC")
+    .prepare(`
+      SELECT *
+      FROM fretes
+      WHERE COALESCE(arquivado, 0) = 0
+      ORDER BY data DESC, id DESC
+    `)
     .all();
 
   res.json(fretes);
@@ -186,6 +201,17 @@ app.patch("/api/fretes/acertar-pendentes", (req, res) => {
     ok: true,
     alterados: result.changes
   });
+});
+app.patch("/api/fretes/:id/arquivar", (req, res) => {
+  const id = Number(req.params.id);
+
+  db.prepare(`
+    UPDATE fretes
+    SET arquivado = 1
+    WHERE id = ?
+  `).run(id);
+
+  res.json({ ok: true });
 });
 
 app.delete("/api/fretes/:id", (req, res) => {
