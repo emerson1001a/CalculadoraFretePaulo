@@ -287,6 +287,26 @@
     .tableWrap {
       overflow-x: auto;
     }
+
+    .fullWidth {
+      grid-column: 1 / -1;
+    }
+
+    .configBox {
+      margin-bottom: 13px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(56,189,248,.25);
+      background: rgba(56,189,248,.08);
+      color: #bae6fd;
+      line-height: 1.45;
+      font-size: 14px;
+    }
+
+    .highlightRow {
+      background: rgba(34,197,94,.10);
+      font-weight: 900;
+    }
   </style>
 </head>
 
@@ -294,8 +314,7 @@
   <div class="wrap">
 <h1>Calculadora de Frete</h1>
 <div class="sub">
-  <strong>Carreta LS • 6 eixos • Porta Container Duplo</strong><br>
-  Calcula o lucro operacional do frete, salva no banco local e controla o acerto mensal.
+  Calcula o lucro operacional do frete, simula valores para negociação, salva os fretes fechados e controla o acerto mensal.
 </div>
 
     <div class="grid">
@@ -307,12 +326,20 @@
 
         <div class="cardBody">
           <div class="formGrid">
+            <div class="fullWidth">
+              <label for="modoCalculo">Tipo de cálculo</label>
+              <select id="modoCalculo">
+                <option value="normal" selected>Tenho o valor do frete</option>
+                <option value="negociar">Frete a negociar — simular valores</option>
+              </select>
+            </div>
+
             <div>
               <label for="data">Data</label>
               <input id="data" type="date">
             </div>
 
-            <div>
+            <div id="freteBox">
               <label for="frete">Valor do frete recebido (R$)</label>
               <input id="frete" inputmode="decimal" placeholder="Ex.: 7500">
             </div>
@@ -362,6 +389,10 @@
 </div>
           </div>
 
+          <div class="note hidden" id="boxModoNegociacao">
+            Este modo é apenas uma simulação. O frete não será salvo no histórico. Depois de negociar, volte para “Tenho o valor do frete”, informe o valor fechado e salve normalmente.
+          </div>
+
           <div class="btns">
            <button id="btnCalcular" type="button">Recalcular agora</button>
 <button id="btnSalvar" type="button">Salvar frete</button>
@@ -378,37 +409,71 @@
         </div>
 
         <div class="cardBody">
-          <div class="resultMain">
-            <div class="metric">
-              <div class="k">Lucro líquido</div>
-              <div class="v" id="lucro">R$ 0,00</div>
-            </div>
-            <div class="metric">
-              <div class="k">Margem</div>
-              <div class="v" id="margem">0,00%</div>
-            </div>
+          <div id="resumoNormal">
+            <div class="resultMain">
+              <div class="metric">
+                <div class="k">Lucro líquido</div>
+                <div class="v" id="lucro">R$ 0,00</div>
+              </div>
+              <div class="metric">
+                <div class="k">Margem</div>
+                <div class="v" id="margem">0,00%</div>
+              </div>
 
-            <div class="metric">
-              <div class="k">Paulo — 50%</div>
-              <div class="v goodText" id="partePaulo">R$ 0,00</div>
-            </div>
+              <div class="metric">
+                <div class="k">Paulo — 50%</div>
+                <div class="v goodText" id="partePaulo">R$ 0,00</div>
+              </div>
 
-            <div class="metric">
-              <div class="k">Rapha — 50%</div>
-              <div class="v goodText" id="parteRapha">R$ 0,00</div>
-            </div>
+              <div class="metric">
+                <div class="k">Rapha — 50%</div>
+                <div class="v goodText" id="parteRapha">R$ 0,00</div>
+              </div>
 
-            <div class="metric">
-              <div class="k">Custo total</div>
-              <div class="v" id="custoTotal">R$ 0,00</div>
-            </div>
+              <div class="metric">
+                <div class="k">Custo total</div>
+                <div class="v" id="custoTotal">R$ 0,00</div>
+              </div>
 
-            <div class="metric">
-              <div class="k">Lucro por km total</div>
-              <div class="v" id="lucroKm">R$ 0,00/km</div>
+              <div class="metric">
+                <div class="k">Lucro por km total</div>
+                <div class="v" id="lucroKm">R$ 0,00/km</div>
+              </div>
             </div>
           </div>
 
+          <div class="hidden" id="resumoNegociacao">
+            <div class="resultMain">
+              <div class="metric">
+                <div class="k">Custo básico estimado da viagem</div>
+                <div class="v" id="custoBasicoNegociacao">R$ 0,00</div>
+              </div>
+              <div class="metric">
+                <div class="k">Distância total considerada</div>
+                <div class="v" id="kmTotalNegociacao">0 km</div>
+              </div>
+            </div>
+
+            <div class="note">
+              A reserva de manutenção e o imposto/administração, quando utilizado, variam conforme o valor negociado. Por isso, a tabela abaixo mostra o custo total estimado em cada cenário.
+            </div>
+
+            <div class="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Margem desejada</th>
+                    <th>Valor mínimo do frete</th>
+                    <th>Custo total estimado</th>
+                    <th>Lucro estimado</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaMargens"></tbody>
+              </table>
+            </div>
+
+            <div class="note" id="orientacoesNegociacao"></div>
+          </div>
 
           <div class="note hidden" id="boxAnaliseIA">
   <strong>Análise da IA</strong>
@@ -425,6 +490,10 @@
   </div>
 
   <div class="cardBody hidden" id="parametrosBody">
+        <div class="configBox">
+          <strong>Configuração atual:</strong> Carreta LS • 6 eixos • Porta Container Duplo
+        </div>
+
         <div class="formGrid">
           <div>
             <label for="consumoDiesel">Consumo diesel (km/L)</label>
@@ -583,7 +652,7 @@
     let fretes = [];
 
     const ids = [
-      "data", "origem", "destino", "frete", "distanciaIda", "tipoRetorno", "distanciaVolta",
+      "modoCalculo", "data", "origem", "destino", "frete", "distanciaIda", "tipoRetorno", "distanciaVolta",
       "consumoDiesel", "precoDiesel", "kmPorArla", "precoArla", "manutencaoPct", "depreciacaoKm",
       "motorista", "pedagio", "impostoPct", "outrosCustos", "observacao"
     ];
@@ -651,8 +720,162 @@
       tbody.appendChild(tr);
     }
 
+    function modoNegociacaoAtivo() {
+      return valor("modoCalculo") === "negociar";
+    }
+
+    function arredondarParaCima(valorBase, multiplo = 100) {
+      return Math.ceil(numero(valorBase) / multiplo) * multiplo;
+    }
+
+    function atualizarModoCalculo() {
+      const negociacao = modoNegociacaoAtivo();
+
+      el("freteBox").classList.toggle("hidden", negociacao);
+      el("boxModoNegociacao").classList.toggle("hidden", !negociacao);
+      el("resumoNormal").classList.toggle("hidden", negociacao);
+      el("resumoNegociacao").classList.toggle("hidden", !negociacao);
+      el("btnSalvar").classList.toggle("hidden", negociacao);
+      el("btnAnalisarIA").classList.toggle("hidden", negociacao);
+      el("btnCalcular").textContent = negociacao
+        ? "Calcular valores para negociação"
+        : "Recalcular agora";
+
+      if (negociacao) {
+        limparAnaliseIA();
+      }
+    }
+
+    function calcularCenarioMargem(custosFixos, percentualVariavel, margemPct) {
+      const margem = margemPct / 100;
+      const denominador = 1 - percentualVariavel - margem;
+
+      if (denominador <= 0) {
+        return null;
+      }
+
+      const valorFrete = custosFixos / denominador;
+      const custoTotal = custosFixos + (valorFrete * percentualVariavel);
+      const lucro = valorFrete - custoTotal;
+
+      return {
+        margemPct,
+        valorFrete,
+        custoTotal,
+        lucro
+      };
+    }
+
+    function renderNegociacao({
+      kmTotal,
+      custoDiesel,
+      custoArla,
+      custoDepreciacao,
+      motorista,
+      pedagio,
+      outrosCustos,
+      manutencaoPct,
+      impostoPct,
+      tipoRetorno
+    }) {
+      const custosFixos = custoDiesel + custoArla + custoDepreciacao + motorista + pedagio + outrosCustos;
+      const percentualVariavel = (manutencaoPct + impostoPct) / 100;
+      const margens = [20, 30, 40, 50];
+      const cenarios = margens.map((margem) => calcularCenarioMargem(custosFixos, percentualVariavel, margem));
+
+      el("custoBasicoNegociacao").textContent = dinheiro(custosFixos);
+      el("kmTotalNegociacao").textContent = kmTotal.toLocaleString("pt-BR") + " km";
+
+      const tbody = el("tabelaMargens");
+      tbody.innerHTML = "";
+
+      cenarios.forEach((cenario) => {
+        const tr = document.createElement("tr");
+
+        if (!cenario) {
+          tr.innerHTML = `
+            <td>-</td>
+            <td colspan="3">Não é possível atingir esta margem com os percentuais atuais.</td>
+          `;
+        } else {
+          if (cenario.margemPct === 30) {
+            tr.className = "highlightRow";
+          }
+
+          tr.innerHTML = `
+            <td>${cenario.margemPct}%</td>
+            <td>${dinheiro(cenario.valorFrete)}</td>
+            <td>${dinheiro(cenario.custoTotal)}</td>
+            <td>${dinheiro(cenario.lucro)}</td>
+          `;
+        }
+
+        tbody.appendChild(tr);
+      });
+
+      const cenario30 = cenarios.find((cenario) => cenario && cenario.margemPct === 30);
+      const cenario40 = cenarios.find((cenario) => cenario && cenario.margemPct === 40);
+      const recomendacoes = [];
+
+      if (cenario30) {
+        recomendacoes.push(
+          `<strong>Referência para negociação:</strong> tente evitar fechar abaixo de ${dinheiro(cenario30.valorFrete)} se quiser preservar uma margem de 30%.`
+        );
+      }
+
+      if (cenario40) {
+        recomendacoes.push(
+          `<strong>Valor para iniciar a conversa:</strong> considere pedir ${dinheiro(arredondarParaCima(cenario40.valorFrete))} para ter espaço de negociação.`
+        );
+      }
+
+      if (tipoRetorno === "vazio") {
+        recomendacoes.push(
+          "<strong>Retorno vazio:</strong> procure um frete de volta. Isso pode melhorar bastante o resultado da viagem."
+        );
+      }
+
+      if (custosFixos > 0 && custoDiesel / custosFixos >= 0.45) {
+        recomendacoes.push(
+          "<strong>Diesel:</strong> ele tem peso elevado no custo desta viagem. Confira se o preço informado está atualizado e avalie abastecer em um posto mais competitivo na rota."
+        );
+      }
+
+      if (custosFixos > 0 && pedagio / custosFixos >= 0.20) {
+        recomendacoes.push(
+          "<strong>Pedágio:</strong> ele representa uma parcela relevante do custo. Confirme o valor e leve isso para a negociação."
+        );
+      }
+
+      if (!recomendacoes.length) {
+        recomendacoes.push(
+          "Os custos informados não indicam um ponto de atenção específico. Use as opções de margem como referência para negociar."
+        );
+      }
+
+      el("orientacoesNegociacao").innerHTML = recomendacoes.join("<br><br>");
+
+      const tabela = el("costTable");
+      if (tabela) tabela.innerHTML = "";
+
+      addRow("Modo", "Frete a negociar — simulação sem salvamento");
+      addRow("Distância total considerada", kmTotal.toLocaleString("pt-BR") + " km");
+      addRow("Diesel", dinheiro(custoDiesel));
+      addRow("ARLA", dinheiro(custoArla));
+      addRow("Depreciação", dinheiro(custoDepreciacao));
+      addRow("Motorista", dinheiro(motorista));
+      addRow("Pedágio", dinheiro(pedagio));
+      addRow("Outros custos", dinheiro(outrosCustos));
+      addRow("Custo básico estimado", dinheiro(custosFixos));
+      addRow("Manutenção", manutencaoPct.toLocaleString("pt-BR") + "% do frete negociado");
+      addRow("Imposto/administração", impostoPct.toLocaleString("pt-BR") + "% do frete negociado");
+
+      ultimoCalculo = null;
+    }
+
     function calcularFrete() {
       toggleRetornoManual();
+      atualizarModoCalculo();
 
       const frete = numero(valor("frete"));
       const ida = numero(valor("distanciaIda"));
@@ -685,6 +908,23 @@
 
       const litrosArla = kmPorArla > 0 ? kmTotal / kmPorArla : 0;
       const custoArla = litrosArla * precoArla;
+
+      if (modoNegociacaoAtivo()) {
+        renderNegociacao({
+          kmTotal,
+          custoDiesel,
+          custoArla,
+          custoDepreciacao: kmTotal * depreciacaoKm,
+          motorista,
+          pedagio,
+          outrosCustos,
+          manutencaoPct,
+          impostoPct,
+          tipoRetorno
+        });
+
+        return null;
+      }
 
       const custoManutencao = frete * (manutencaoPct / 100);
       const custoDepreciacao = kmTotal * depreciacaoKm;
@@ -754,6 +994,11 @@
       return ultimoCalculo;
     }
 async function analisarFreteIA() {
+  if (modoNegociacaoAtivo()) {
+    alert("No modo Frete a negociar, use as recomendações automáticas exibidas na tela.");
+    return;
+  }
+
   const dados = calcularFrete();
 
   if (!dados.valor_frete || !dados.km_ida) {
@@ -790,6 +1035,11 @@ async function analisarFreteIA() {
   }
 }
     async function salvarFrete() {
+      if (modoNegociacaoAtivo()) {
+        alert("Fretes em negociação não são salvos. Depois de fechar o valor, volte ao modo normal e salve o frete.");
+        return;
+      }
+
       const dados = calcularFrete();
 
       if (!dados.valor_frete || !dados.km_ida) {
