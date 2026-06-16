@@ -61,28 +61,96 @@ try {
     throw erro;
   }
 }
+try {
+  db.exec(`
+    ALTER TABLE fretes
+    ADD COLUMN origem_lancamento TEXT NOT NULL DEFAULT 'web'
+  `);
+} catch (erro) {
+  if (!String(erro.message).includes("duplicate column name")) {
+    throw erro;
+  }
+}
 
 function numero(valor) {
-  const n = Number(valor);
+  const n = Number(String(valor ?? "").replace(",", "."));
   return Number.isFinite(n) ? n : 0;
 }
 
-app.get("/api/fretes", (req, res) => {
-  const fretes = db
-    .prepare(`
-      SELECT *
-      FROM fretes
-      WHERE COALESCE(arquivado, 0) = 0
-      ORDER BY data DESC, id DESC
-    `)
-    .all();
+function dinheiro(n) {
+  return Number(n || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  });
+}
 
-  res.json(fretes);
-});
+function calcularFrete(dados = {}) {
+  const frete = numero(dados.valor_frete);
+  const ida = numero(dados.km_ida ?? dados.distancia);
+  const tipoRetorno = dados.tipo_retorno || dados.tipoRetorno || "vazio";
+  let volta = 0;
 
-app.post("/api/fretes", (req, res) => {
-  const body = req.body || {};
+  if (tipoRetorno === "vazio") {
+    volta = ida;
+  } else if (tipoRetorno === "manual") {
+    volta = numero(dados.km_volta);
+  }
 
+  const kmTotal = ida + volta;
+  const consumoDiesel = numero(dados.consumo_diesel ?? dados.consumoDiesel ?? 2.5);
+  const precoDiesel = numero(dados.preco_diesel ?? dados.precoDiesel ?? 6.6);
+  const kmPorArla = numero(dados.km_por_arla ?? dados.kmPorArla ?? 12);
+  const precoArla = numero(dados.preco_arla ?? dados.precoArla ?? 3.6);
+  const manutencaoPct = numero(dados.manutencao_pct ?? dados.manutencaoPct ?? 10);
+  const depreciacaoKm = numero(dados.depreciacao_km ?? dados.depreciacaoKm ?? 0.5);
+  const motorista = numero(dados.motorista);
+  const pedagio = numero(dados.pedagio);
+  const impostoPct = numero(dados.imposto_pct ?? dados.impostoPct);
+  const outrosCustos = numero(dados.outros_custos ?? dados.outrosCustos);
+
+  const litrosDiesel = consumoDiesel > 0 ? kmTotal / consumoDiesel : 0;
+  const custoDiesel = litrosDiesel * precoDiesel;
+  const litrosArla = kmPorArla > 0 ? kmTotal / kmPorArla : 0;
+  const custoArla = litrosArla * precoArla;
+  const custoManutencao = frete * (manutencaoPct / 100);
+  const custoDepreciacao = kmTotal * depreciacaoKm;
+  const imposto = frete * (impostoPct / 100);
+  const custoTotal = custoDiesel + custoArla + custoManutencao + custoDepreciacao + motorista + pedagio + imposto + outrosCustos;
+  const lucro = frete - custoTotal;
+  const partePaulo = lucro / 2;
+  const parteRapha = lucro / 2;
+  const margem = frete > 0 ? (lucro / frete) * 100 : 0;
+  const lucroPorKm = kmTotal > 0 ? lucro / kmTotal : 0;
+
+  return {
+    data: dados.data || new Date().toISOString().slice(0, 10),
+    origem: dados.origem || "",
+    destino: dados.destino || "",
+    valor_frete: frete,
+    km_ida: ida,
+    km_volta: volta,
+    km_total: kmTotal,
+    custo_diesel: custoDiesel,
+    custo_arla: custoArla,
+    custo_manutencao: custoManutencao,
+    custo_depreciacao: custoDepreciacao,
+    motorista,
+    pedagio,
+    imposto,
+    outros_custos: outrosCustos,
+    custo_total: custoTotal,
+    lucro,
+    parte_paulo: partePaulo,
+    parte_rapha: parteRapha,
+    margem,
+    lucro_por_km: lucroPorKm,
+    status_acerto: dados.status_acerto || "pendente",
+    observacao: dados.observacao || "",
+    origem_lancamento: dados.origem_lancamento || "web"
+  };
+}
+
+function salvarFreteCalculado(dados) {
   const stmt = db.prepare(`
     INSERT INTO fretes (
       data,
@@ -107,7 +175,8 @@ app.post("/api/fretes", (req, res) => {
       margem,
       lucro_por_km,
       status_acerto,
-      observacao
+      observacao,
+      origem_lancamento
     )
     VALUES (
       @data,
@@ -132,9 +201,29 @@ app.post("/api/fretes", (req, res) => {
       @margem,
       @lucro_por_km,
       @status_acerto,
-      @observacao
+      @observacao,
+      @origem_lancamento
     )
   `);
+
+  return stmt.run(dados);
+}
+
+app.get("/api/fretes", (req, res) => {
+  const fretes = db
+    .prepare(`
+      SELECT *
+      FROM fretes
+      WHERE COALESCE(arquivado, 0) = 0
+      ORDER BY data DESC, id DESC
+    `)
+    .all();
+
+  res.json(fretes);
+});
+
+app.post("/api/fretes", (req, res) => {
+  const body = req.body || {};
 
   const dados = {
     data: body.data || new Date().toISOString().slice(0, 10),
@@ -159,10 +248,11 @@ app.post("/api/fretes", (req, res) => {
     margem: numero(body.margem),
     lucro_por_km: numero(body.lucro_por_km),
     status_acerto: body.status_acerto || "pendente",
-    observacao: body.observacao || ""
+    observacao: body.observacao || "",
+    origem_lancamento: body.origem_lancamento || "web"
   };
 
-  const result = stmt.run(dados);
+  const result = salvarFreteCalculado(dados);
 
   res.json({
     ok: true,
@@ -220,6 +310,245 @@ app.delete("/api/fretes/:id", (req, res) => {
   db.prepare("DELETE FROM fretes WHERE id = ?").run(id);
 
   res.json({ ok: true });
+});
+
+function numeroTexto(valor) {
+  if (!valor) return 0;
+  const limpo = String(valor)
+    .replace(/\s/g, "")
+    .replace(/\.(?=\d{3}(?:\D|$))/g, "")
+    .replace(",", ".");
+  return numero(limpo);
+}
+
+function extrairNumero(texto, regex) {
+  const match = texto.match(regex);
+  return match ? numeroTexto(match[1]) : 0;
+}
+
+function extrairDadosMensagemFrete(textoOriginal = "") {
+  const texto = String(textoOriginal || "").trim();
+  const rota = texto.match(/frete\s+de\s+(.+?)\s+para\s+(.+?)(?:,|\.|\s+valor|\s+dist[aâ]ncia|\s+diesel|\s+consumo|\s+ped[aá]gio|$)/i);
+  const informouPedagio = /ped\S*/i.test(texto);
+
+  return {
+    origem: rota ? rota[1].trim() : "",
+    destino: rota ? rota[2].trim() : "",
+    valor_frete: extrairNumero(texto, /(?:valor|frete recebido|frete)\s*(?:de|r\$|=|:)?\s*([0-9][0-9.\s]*(?:,\d+)?)/i),
+    km_ida: extrairNumero(texto, /dist\S*\s*(?:de|aproximada|=|:)?\s*([0-9][0-9.\s]*(?:,\d+)?)\s*(?:km)?/i),
+    preco_diesel: extrairNumero(texto, /diesel\s*(?:a|de|r\$|=|:)?\s*([0-9][0-9.\s]*(?:,\d+)?)/i),
+    consumo_diesel: extrairNumero(texto, /consumo\s*(?:de|=|:)?\s*([0-9][0-9.\s]*(?:,\d+)?)\s*(?:km\/l|km por litro)?/i),
+    pedagio: extrairNumero(texto, /ped\S*\s*(?:de|r\$|=|:)?\s*([0-9][0-9.\s]*(?:,\d+)?)/i),
+    informou_pedagio: informouPedagio
+  };
+}
+
+function proximaPerguntaDadosFaltantes(dados) {
+  if (!dados.origem) return "Entendi. Para calcular melhor, me informe a origem do frete.";
+  if (!dados.destino) return "Entendi. Para calcular melhor, me informe o destino do frete.";
+  if (!dados.valor_frete) return "Entendi. Para calcular melhor, me informe o valor do frete.";
+  if (!dados.km_ida) return "Entendi. Para calcular melhor, me informe a distância aproximada em km.";
+  if (!dados.preco_diesel) return "Entendi. Para calcular melhor, me informe o preço do diesel.";
+  if (!dados.consumo_diesel) return "Entendi. Para calcular melhor, me informe o consumo do caminhão em km/l.";
+  if (!dados.informou_pedagio) return "Entendi. Para calcular melhor, me informe o valor do pedágio.";
+  return "";
+}
+
+function classificarFrete(calculo) {
+  if (calculo.lucro <= 0 || calculo.margem < 5) {
+    return {
+      texto: "RUIM",
+      recomendacao: "Esse frete parece ruim. Negocie melhor ou confira se existe retorno para compensar."
+    };
+  }
+  if (calculo.margem < 15) {
+    return {
+      texto: "APERTADO",
+      recomendacao: "Esse frete exige negociação. A margem está apertada."
+    };
+  }
+  if (calculo.margem < 30) {
+    return {
+      texto: "BOM",
+      recomendacao: "Esse frete parece viável, mas ainda vale conferir diesel, pedágio e retorno."
+    };
+  }
+  return {
+    texto: "ÓTIMO",
+    recomendacao: "Esse frete parece bem viável pelos números informados."
+  };
+}
+
+function montarRespostaFrete(calculo) {
+  const classificacao = classificarFrete(calculo);
+
+  return [
+    "Resultado do frete:",
+    "",
+    `Origem: ${calculo.origem || "-"}`,
+    `Destino: ${calculo.destino || "-"}`,
+    `Valor do frete: ${dinheiro(calculo.valor_frete)}`,
+    `Custo estimado: ${dinheiro(calculo.custo_total)}`,
+    `Lucro estimado: ${dinheiro(calculo.lucro)}`,
+    `Lucro por km: ${dinheiro(calculo.lucro_por_km)}/km`,
+    `Classificação: ${classificacao.texto}`,
+    "",
+    `Recomendação: ${classificacao.recomendacao}`
+  ].join("\n");
+}
+
+async function sendWhatsAppMessage(to, text) {
+  const apiVersion = process.env.WHATSAPP_API_VERSION;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+
+  if (!apiVersion || !phoneNumberId || !accessToken) {
+    throw new Error("Variáveis do WhatsApp não configuradas.");
+  }
+
+  const url = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      type: "text",
+      text: { body: text }
+    })
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    console.error("Erro ao enviar WhatsApp:", response.status, body);
+    throw new Error("Erro ao enviar mensagem pelo WhatsApp.");
+  }
+
+  return response.json();
+}
+
+async function processarMensagemWhatsApp({ telefone, mensagem, salvar = true }) {
+  console.log("WhatsApp recebido:", {
+    telefone,
+    texto: mensagem
+  });
+
+  const dadosExtraidos = extrairDadosMensagemFrete(mensagem);
+  console.log("Dados extraídos do WhatsApp:", dadosExtraidos);
+
+  const pergunta = proximaPerguntaDadosFaltantes(dadosExtraidos);
+  if (pergunta) {
+    return {
+      completo: false,
+      dados_extraidos: dadosExtraidos,
+      resposta: pergunta
+    };
+  }
+
+  const calculo = calcularFrete({
+    ...dadosExtraidos,
+    tipo_retorno: "vazio",
+    origem_lancamento: "whatsapp",
+    observacao: `Lançado via WhatsApp pelo telefone ${telefone || "-"}`
+  });
+  const resposta = montarRespostaFrete(calculo);
+  let id = null;
+
+  if (salvar) {
+    const result = salvarFreteCalculado(calculo);
+    id = result.lastInsertRowid;
+  }
+
+  console.log("Resultado do cálculo WhatsApp:", {
+    id,
+    origem: calculo.origem,
+    destino: calculo.destino,
+    valor_frete: calculo.valor_frete,
+    custo_total: calculo.custo_total,
+    lucro: calculo.lucro,
+    margem: calculo.margem
+  });
+
+  return {
+    completo: true,
+    salvo: Boolean(id),
+    id,
+    dados_extraidos: dadosExtraidos,
+    calculo,
+    resposta
+  };
+}
+
+app.get("/webhook/whatsapp", (req, res) => {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  if (mode === "subscribe" && token === process.env.WHATSAPP_VERIFY_TOKEN) {
+    return res.status(200).send(challenge);
+  }
+
+  return res.sendStatus(403);
+});
+
+app.post("/webhook/whatsapp", async (req, res) => {
+  try {
+    const entries = req.body?.entry || [];
+
+    for (const entry of entries) {
+      const changes = entry.changes || [];
+      for (const change of changes) {
+        const value = change.value || {};
+        const messages = value.messages || [];
+        for (const message of messages) {
+          if (message.type !== "text") continue;
+
+          const telefone = message.from;
+          const texto = message.text?.body || "";
+          const resultado = await processarMensagemWhatsApp({
+            telefone,
+            mensagem: texto,
+            salvar: true
+          });
+
+          await sendWhatsAppMessage(telefone, resultado.resposta);
+        }
+      }
+    }
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.error("Erro no webhook do WhatsApp:", error.message);
+    res.sendStatus(200);
+  }
+});
+
+app.post("/api/whatsapp/teste", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const resultado = await processarMensagemWhatsApp({
+      telefone: body.telefone || "teste",
+      mensagem: body.mensagem || "",
+      salvar: body.salvar === true
+    });
+
+    res.json({
+      ok: true,
+      telefone: body.telefone || "teste",
+      mensagem_recebida: body.mensagem || "",
+      ...resultado
+    });
+  } catch (error) {
+    console.error("Erro no teste WhatsApp:", error);
+    res.status(500).json({
+      ok: false,
+      erro: "Erro ao testar mensagem de WhatsApp."
+    });
+  }
 });
 app.post("/api/analisar-frete", async (req, res) => {
   try {
