@@ -558,6 +558,105 @@ function temDadosExtraidos(dados) {
   );
 }
 
+function extrairJsonObjeto(texto) {
+  const limpo = String(texto || "")
+    .replace(/```json/gi, "")
+    .replace(/```/g, "")
+    .trim();
+  const inicio = limpo.indexOf("{");
+  const fim = limpo.lastIndexOf("}");
+
+  if (inicio < 0 || fim < inicio) return null;
+
+  try {
+    return JSON.parse(limpo.slice(inicio, fim + 1));
+  } catch (error) {
+    console.error("Nao consegui ler o JSON da IA:", error.message);
+    return null;
+  }
+}
+
+function normalizarDadosFreteIA(dados = {}) {
+  const pedagio = dados.pedagio === null || dados.pedagio === undefined ? 0 : numero(dados.pedagio);
+  const informouPedagio = Boolean(dados.informou_pedagio) || pedagio > 0;
+
+  return {
+    origem: typeof dados.origem === "string" ? dados.origem.trim() : "",
+    destino: typeof dados.destino === "string" ? dados.destino.trim() : "",
+    valor_frete: numero(dados.valor_frete),
+    km_ida: numero(dados.km_ida ?? dados.distancia),
+    preco_diesel: numero(dados.preco_diesel),
+    consumo_diesel: numero(dados.consumo_diesel),
+    pedagio,
+    informou_pedagio: informouPedagio
+  };
+}
+
+async function interpretarFreteComIA({ mensagem, dadosAtuais = {}, campoPendente = "" }) {
+  if (!process.env.OPENAI_API_KEY || !String(mensagem || "").trim()) {
+    return { usada: false, dados: {} };
+  }
+
+  const prompt = `
+Voce e um extrator de dados para uma calculadora de frete de caminhao.
+
+Sua tarefa e transformar a mensagem do motorista em JSON.
+Nao calcule lucro, custo, margem, diesel total ou recomendacao.
+Se um dado nao estiver claro, use null.
+Se o motorista responder apenas um numero e houver campo_pendente, use esse numero para esse campo.
+Para pedagio: se o motorista disser que nao tem pedagio, use pedagio 0 e informou_pedagio true.
+Responda somente com JSON valido, sem texto antes ou depois.
+
+Campos esperados:
+{
+  "origem": string|null,
+  "destino": string|null,
+  "valor_frete": number|null,
+  "km_ida": number|null,
+  "preco_diesel": number|null,
+  "consumo_diesel": number|null,
+  "pedagio": number|null,
+  "informou_pedagio": boolean,
+  "confianca": number,
+  "observacoes": string[]
+}
+
+Dados que ja estavam no rascunho:
+${JSON.stringify(dadosAtuais || {})}
+
+Campo pendente:
+${campoPendente || "nenhum"}
+
+Mensagem do motorista:
+${String(mensagem || "").slice(0, 1200)}
+`;
+
+  try {
+    const resposta = await openai.responses.create({
+      model: process.env.OPENAI_MODEL_WHATSAPP || "gpt-4.1-mini",
+      input: prompt
+    });
+    const json = extrairJsonObjeto(resposta.output_text);
+    const dados = json ? normalizarDadosFreteIA(json) : {};
+
+    console.log("IA interpretou mensagem WhatsApp:", {
+      usada: true,
+      campos: dados,
+      confianca: json?.confianca ?? null
+    });
+
+    return {
+      usada: true,
+      dados,
+      confianca: json?.confianca ?? null,
+      observacoes: Array.isArray(json?.observacoes) ? json.observacoes : []
+    };
+  } catch (error) {
+    console.error("Erro ao interpretar WhatsApp com IA:", error.message);
+    return { usada: false, dados: {}, erro: error.message };
+  }
+}
+
 function mesclarDadosFrete(base, novos) {
   const dados = { ...(base || {}) };
   if (novos.origem) dados.origem = novos.origem;
@@ -631,7 +730,7 @@ async function processarMensagemWhatsApp({ telefone, mensagem, messageId = "", s
   const dadosComplementares = conversa?.campo_pendente && !temDadosExtraidos(dadosExtraidos)
     ? extrairRespostaCampoPendente(conversa.campo_pendente, mensagem)
     : {};
-  const dadosMesclados = mesclarDadosFrete(
+  let dadosMesclados = mesclarDadosFrete(
     mesclarDadosFrete(conversa?.dados || {}, dadosExtraidos),
     dadosComplementares
   );
@@ -641,7 +740,27 @@ async function processarMensagemWhatsApp({ telefone, mensagem, messageId = "", s
     dados: dadosMesclados
   });
 
-  const proximo = proximoDadoFaltanteMemoria(dadosMesclados);
+  let interpretacaoIA = { usada: false, dados: {} };
+  let proximo = proximoDadoFaltanteMemoria(dadosMesclados);
+  const deveTentarIA = proximo || (!conversa?.campo_pendente && !temDadosExtraidos(dadosExtraidos));
+
+  if (deveTentarIA) {
+    interpretacaoIA = await interpretarFreteComIA({
+      mensagem,
+      dadosAtuais: dadosMesclados,
+      campoPendente: conversa?.campo_pendente || proximo?.campo || ""
+    });
+
+    if (interpretacaoIA.usada && temDadosExtraidos(interpretacaoIA.dados)) {
+      dadosMesclados = mesclarDadosFrete(dadosMesclados, interpretacaoIA.dados);
+      proximo = proximoDadoFaltanteMemoria(dadosMesclados);
+      console.log("Dados acumulados apos IA:", {
+        telefone,
+        dados: dadosMesclados
+      });
+    }
+  }
+
   const pergunta = proximo ? proximo.pergunta : "";
   if (pergunta) {
     salvarConversaWhatsApp(telefone, dadosMesclados, proximo.campo);
@@ -649,6 +768,7 @@ async function processarMensagemWhatsApp({ telefone, mensagem, messageId = "", s
       completo: false,
       campo_pendente: proximo.campo,
       dados_extraidos: dadosMesclados,
+      ia_usada: interpretacaoIA.usada,
       resposta: pergunta
     };
   }
@@ -683,7 +803,8 @@ async function processarMensagemWhatsApp({ telefone, mensagem, messageId = "", s
     completo: true,
     salvo: Boolean(id),
     id,
-    dados_extraidos: dadosExtraidos,
+    dados_extraidos: dadosMesclados,
+    ia_usada: interpretacaoIA.usada,
     calculo,
     resposta
   };

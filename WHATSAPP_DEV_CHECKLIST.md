@@ -13,6 +13,7 @@ WHATSAPP_VERIFY_TOKEN=rode-com-lucro-dev-2026
 WHATSAPP_ACCESS_TOKEN=<token temporario gerado na Meta>
 WHATSAPP_PHONE_NUMBER_ID=1212280955297569
 WHATSAPP_API_VERSION=v25.0
+OPENAI_API_KEY=<chave da OpenAI>
 ```
 
 Depois de alterar variaveis no Render, fazer:
@@ -142,4 +143,24 @@ Para apagar um rascunho em andamento:
 
 ```txt
 cancelar
+```
+
+## Interpretacao com IA
+
+O WhatsApp tenta primeiro entender a mensagem com o parser simples.
+Se faltar algum dado ou a mensagem vier mais informal, a IA tenta transformar o texto em campos estruturados.
+
+A IA nao calcula lucro, custo ou margem. Ela apenas interpreta a mensagem.
+O calculo continua sendo feito pela calculadora do sistema.
+
+Exemplo de mensagem mais natural:
+
+```txt
+Peguei um frete de Santos pra Campinas por 3200, deve dar 210 km, diesel ta 6,10, pedagio 95, o caminhao faz 3 por litro
+```
+
+Resultado esperado:
+
+```txt
+Resultado do frete...
 ```
