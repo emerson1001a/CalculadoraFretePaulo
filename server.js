@@ -71,6 +71,15 @@ try {
     throw erro;
   }
 }
+db.exec(`
+  CREATE TABLE IF NOT EXISTS whatsapp_mensagens (
+    message_id TEXT PRIMARY KEY,
+    telefone TEXT,
+    texto TEXT,
+    frete_id INTEGER,
+    criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )
+`);
 
 function numero(valor) {
   const n = Number(String(valor ?? "").replace(",", "."));
@@ -431,11 +440,60 @@ async function sendWhatsAppMessage(to, text) {
   return response.json();
 }
 
-async function processarMensagemWhatsApp({ telefone, mensagem, salvar = true }) {
+function buscarMensagemWhatsApp(messageId) {
+  if (!messageId) return null;
+  return db
+    .prepare("SELECT * FROM whatsapp_mensagens WHERE message_id = ?")
+    .get(messageId);
+}
+
+function registrarMensagemWhatsApp({ messageId, telefone, texto, freteId = null }) {
+  if (!messageId) return;
+  db.prepare(`
+    INSERT OR IGNORE INTO whatsapp_mensagens (
+      message_id,
+      telefone,
+      texto,
+      frete_id
+    )
+    VALUES (?, ?, ?, ?)
+  `).run(messageId, telefone || "", texto || "", freteId);
+}
+
+function atualizarFreteMensagemWhatsApp(messageId, freteId) {
+  if (!messageId || !freteId) return;
+  db.prepare(`
+    UPDATE whatsapp_mensagens
+    SET frete_id = ?
+    WHERE message_id = ?
+  `).run(freteId, messageId);
+}
+
+async function processarMensagemWhatsApp({ telefone, mensagem, messageId = "", salvar = true }) {
   console.log("WhatsApp recebido:", {
     telefone,
+    messageId,
     texto: mensagem
   });
+
+  const mensagemExistente = buscarMensagemWhatsApp(messageId);
+  if (mensagemExistente) {
+    console.log("Mensagem WhatsApp duplicada ignorada:", {
+      messageId,
+      frete_id: mensagemExistente.frete_id
+    });
+    return {
+      duplicada: true,
+      completo: true,
+      salvo: false,
+      id: mensagemExistente.frete_id,
+      resposta: ""
+    };
+  }
+
+  if (salvar && messageId) {
+    registrarMensagemWhatsApp({ messageId, telefone, texto: mensagem });
+  }
 
   const dadosExtraidos = extrairDadosMensagemFrete(mensagem);
   console.log("Dados extraídos do WhatsApp:", dadosExtraidos);
@@ -461,6 +519,7 @@ async function processarMensagemWhatsApp({ telefone, mensagem, salvar = true }) 
   if (salvar) {
     const result = salvarFreteCalculado(calculo);
     id = result.lastInsertRowid;
+    atualizarFreteMensagemWhatsApp(messageId, id);
   }
 
   console.log("Resultado do cálculo WhatsApp:", {
@@ -495,6 +554,17 @@ app.get("/webhook/whatsapp", (req, res) => {
   return res.sendStatus(403);
 });
 
+app.get("/api/whatsapp/status", (req, res) => {
+  res.json({
+    ok: true,
+    webhook: "/webhook/whatsapp",
+    verify_token_configurado: Boolean(process.env.WHATSAPP_VERIFY_TOKEN),
+    access_token_configurado: Boolean(process.env.WHATSAPP_ACCESS_TOKEN),
+    phone_number_id_configurado: Boolean(process.env.WHATSAPP_PHONE_NUMBER_ID),
+    api_version: process.env.WHATSAPP_API_VERSION || null
+  });
+});
+
 app.post("/webhook/whatsapp", async (req, res) => {
   try {
     const entries = req.body?.entry || [];
@@ -512,10 +582,13 @@ app.post("/webhook/whatsapp", async (req, res) => {
           const resultado = await processarMensagemWhatsApp({
             telefone,
             mensagem: texto,
+            messageId: message.id || "",
             salvar: true
           });
 
-          await sendWhatsAppMessage(telefone, resultado.resposta);
+          if (!resultado.duplicada && resultado.resposta) {
+            await sendWhatsAppMessage(telefone, resultado.resposta);
+          }
         }
       }
     }
@@ -533,6 +606,7 @@ app.post("/api/whatsapp/teste", async (req, res) => {
     const resultado = await processarMensagemWhatsApp({
       telefone: body.telefone || "teste",
       mensagem: body.mensagem || "",
+      messageId: body.message_id || "",
       salvar: body.salvar === true
     });
 
