@@ -80,6 +80,14 @@ db.exec(`
     criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )
 `);
+db.exec(`
+  CREATE TABLE IF NOT EXISTS whatsapp_conversas (
+    telefone TEXT PRIMARY KEY,
+    dados_json TEXT NOT NULL,
+    campo_pendente TEXT,
+    atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )
+`);
 
 function numero(valor) {
   const n = Number(String(valor ?? "").replace(",", "."));
@@ -335,6 +343,10 @@ function extrairNumero(texto, regex) {
   return match ? numeroTexto(match[1]) : 0;
 }
 
+function extrairPrimeiroNumero(texto) {
+  return extrairNumero(String(texto || ""), /([0-9][0-9.\s]*(?:,\d+)?)/);
+}
+
 function extrairDadosMensagemFrete(textoOriginal = "") {
   const texto = String(textoOriginal || "").trim();
   const rota = texto.match(/frete\s+de\s+(.+?)\s+para\s+(.+?)(?:,|\.|\s+valor|\s+dist[aâ]ncia|\s+diesel|\s+consumo|\s+ped[aá]gio|$)/i);
@@ -361,6 +373,31 @@ function proximaPerguntaDadosFaltantes(dados) {
   if (!dados.consumo_diesel) return "Entendi. Para calcular melhor, me informe o consumo do caminhão em km/l.";
   if (!dados.informou_pedagio) return "Entendi. Para calcular melhor, me informe o valor do pedágio.";
   return "";
+}
+
+function proximoDadoFaltanteMemoria(dados) {
+  if (!dados.origem) {
+    return { campo: "origem", pergunta: "Entendi. Para calcular melhor, me informe a origem do frete." };
+  }
+  if (!dados.destino) {
+    return { campo: "destino", pergunta: "Entendi. Para calcular melhor, me informe o destino do frete." };
+  }
+  if (!dados.valor_frete) {
+    return { campo: "valor_frete", pergunta: "Entendi. Para calcular melhor, me informe o valor do frete." };
+  }
+  if (!dados.km_ida) {
+    return { campo: "km_ida", pergunta: "Entendi. Para calcular melhor, me informe a distancia aproximada em km." };
+  }
+  if (!dados.preco_diesel) {
+    return { campo: "preco_diesel", pergunta: "Entendi. Para calcular melhor, me informe o preco do diesel." };
+  }
+  if (!dados.consumo_diesel) {
+    return { campo: "consumo_diesel", pergunta: "Entendi. Para calcular melhor, me informe o consumo do caminhao em km/l." };
+  }
+  if (!dados.informou_pedagio) {
+    return { campo: "pedagio", pergunta: "Entendi. Para calcular melhor, me informe o valor do pedagio." };
+  }
+  return null;
 }
 
 function classificarFrete(calculo) {
@@ -469,6 +506,89 @@ function atualizarFreteMensagemWhatsApp(messageId, freteId) {
   `).run(freteId, messageId);
 }
 
+function carregarConversaWhatsApp(telefone) {
+  if (!telefone) return null;
+  const row = db
+    .prepare("SELECT * FROM whatsapp_conversas WHERE telefone = ?")
+    .get(telefone);
+  if (!row) return null;
+
+  try {
+    return {
+      telefone: row.telefone,
+      campo_pendente: row.campo_pendente || "",
+      dados: JSON.parse(row.dados_json || "{}")
+    };
+  } catch {
+    return null;
+  }
+}
+
+function salvarConversaWhatsApp(telefone, dados, campoPendente) {
+  if (!telefone) return;
+  db.prepare(`
+    INSERT INTO whatsapp_conversas (
+      telefone,
+      dados_json,
+      campo_pendente,
+      atualizado_em
+    )
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(telefone) DO UPDATE SET
+      dados_json = excluded.dados_json,
+      campo_pendente = excluded.campo_pendente,
+      atualizado_em = CURRENT_TIMESTAMP
+  `).run(telefone, JSON.stringify(dados || {}), campoPendente || "");
+}
+
+function limparConversaWhatsApp(telefone) {
+  if (!telefone) return;
+  db.prepare("DELETE FROM whatsapp_conversas WHERE telefone = ?").run(telefone);
+}
+
+function temDadosExtraidos(dados) {
+  return Boolean(
+    dados.origem ||
+    dados.destino ||
+    dados.valor_frete ||
+    dados.km_ida ||
+    dados.preco_diesel ||
+    dados.consumo_diesel ||
+    dados.informou_pedagio
+  );
+}
+
+function mesclarDadosFrete(base, novos) {
+  const dados = { ...(base || {}) };
+  if (novos.origem) dados.origem = novos.origem;
+  if (novos.destino) dados.destino = novos.destino;
+  if (novos.valor_frete) dados.valor_frete = novos.valor_frete;
+  if (novos.km_ida) dados.km_ida = novos.km_ida;
+  if (novos.preco_diesel) dados.preco_diesel = novos.preco_diesel;
+  if (novos.consumo_diesel) dados.consumo_diesel = novos.consumo_diesel;
+  if (novos.informou_pedagio) {
+    dados.pedagio = novos.pedagio;
+    dados.informou_pedagio = true;
+  }
+  return dados;
+}
+
+function extrairRespostaCampoPendente(campo, mensagem) {
+  const texto = String(mensagem || "").trim();
+  const numeroResposta = extrairPrimeiroNumero(texto);
+
+  if (campo === "origem") return { origem: texto };
+  if (campo === "destino") return { destino: texto };
+  if (campo === "valor_frete") return { valor_frete: numeroResposta };
+  if (campo === "km_ida") return { km_ida: numeroResposta };
+  if (campo === "preco_diesel") return { preco_diesel: numeroResposta };
+  if (campo === "consumo_diesel") return { consumo_diesel: numeroResposta };
+  if (campo === "pedagio") {
+    return { pedagio: numeroResposta, informou_pedagio: true };
+  }
+  return {};
+}
+
 async function processarMensagemWhatsApp({ telefone, mensagem, messageId = "", salvar = true }) {
   console.log("WhatsApp recebido:", {
     telefone,
@@ -495,20 +615,46 @@ async function processarMensagemWhatsApp({ telefone, mensagem, messageId = "", s
     registrarMensagemWhatsApp({ messageId, telefone, texto: mensagem });
   }
 
+  if (/^(cancelar|limpar|recomeçar|recomecar)$/i.test(String(mensagem || "").trim())) {
+    limparConversaWhatsApp(telefone);
+    return {
+      completo: false,
+      cancelada: true,
+      resposta: "Certo, apaguei o rascunho desse frete. Pode me mandar um novo frete quando quiser."
+    };
+  }
+
   const dadosExtraidos = extrairDadosMensagemFrete(mensagem);
   console.log("Dados extraídos do WhatsApp:", dadosExtraidos);
 
-  const pergunta = proximaPerguntaDadosFaltantes(dadosExtraidos);
+  const conversa = carregarConversaWhatsApp(telefone);
+  const dadosComplementares = conversa?.campo_pendente && !temDadosExtraidos(dadosExtraidos)
+    ? extrairRespostaCampoPendente(conversa.campo_pendente, mensagem)
+    : {};
+  const dadosMesclados = mesclarDadosFrete(
+    mesclarDadosFrete(conversa?.dados || {}, dadosExtraidos),
+    dadosComplementares
+  );
+  console.log("Dados acumulados da conversa:", {
+    telefone,
+    campo_pendente_anterior: conversa?.campo_pendente || "",
+    dados: dadosMesclados
+  });
+
+  const proximo = proximoDadoFaltanteMemoria(dadosMesclados);
+  const pergunta = proximo ? proximo.pergunta : "";
   if (pergunta) {
+    salvarConversaWhatsApp(telefone, dadosMesclados, proximo.campo);
     return {
       completo: false,
-      dados_extraidos: dadosExtraidos,
+      campo_pendente: proximo.campo,
+      dados_extraidos: dadosMesclados,
       resposta: pergunta
     };
   }
 
   const calculo = calcularFrete({
-    ...dadosExtraidos,
+    ...dadosMesclados,
     tipo_retorno: "vazio",
     origem_lancamento: "whatsapp",
     observacao: `Lançado via WhatsApp pelo telefone ${telefone || "-"}`
@@ -521,6 +667,7 @@ async function processarMensagemWhatsApp({ telefone, mensagem, messageId = "", s
     id = result.lastInsertRowid;
     atualizarFreteMensagemWhatsApp(messageId, id);
   }
+  limparConversaWhatsApp(telefone);
 
   console.log("Resultado do cálculo WhatsApp:", {
     id,

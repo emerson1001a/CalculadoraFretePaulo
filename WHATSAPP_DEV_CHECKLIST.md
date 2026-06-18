@@ -109,3 +109,37 @@ Mensagem real para enviar ao numero de teste:
 ```txt
 Frete de Sao Paulo para Curitiba, valor 2500, distancia 410 km, diesel 6,20, consumo 3 km/l, pedagio 180
 ```
+
+## Memoria curta de conversa
+
+Se faltar um dado, o sistema guarda um rascunho pelo telefone e pergunta apenas o primeiro dado faltante.
+
+Exemplo:
+
+```txt
+Frete de Santos para Campinas, valor 3200, diesel 6,10, consumo 3 km/l, pedagio 95
+```
+
+Resposta esperada:
+
+```txt
+Entendi. Para calcular melhor, me informe a distancia aproximada em km.
+```
+
+Depois, responder apenas:
+
+```txt
+210 km
+```
+
+Resultado esperado:
+
+```txt
+Resultado do frete...
+```
+
+Para apagar um rascunho em andamento:
+
+```txt
+cancelar
+```
