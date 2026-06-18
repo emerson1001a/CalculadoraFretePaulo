@@ -349,16 +349,20 @@ function extrairPrimeiroNumero(texto) {
 
 function extrairDadosMensagemFrete(textoOriginal = "") {
   const texto = String(textoOriginal || "").trim();
-  const rota = texto.match(/frete\s+de\s+(.+?)\s+para\s+(.+?)(?:,|\.|\s+valor|\s+dist[aâ]ncia|\s+diesel|\s+consumo|\s+ped[aá]gio|$)/i);
+  const rotaFrete = texto.match(/frete\s+de\s+(.+?)\s+para\s+(.+?)(?:,|\.|\s+valor|\s+dist\S*|\s+diesel|\s+consumo|\s+ped\S*|$)/i);
+  const rotaSolta = texto.match(/(?:^|[,.;]\s*)de\s+(.+?)\s+para\s+(.+?)(?:,|\.|\s+valor|\s+dist\S*|\s+diesel|\s+consumo|\s+ped\S*|\s+[0-9][0-9.\s]*(?:,\d+)?\s*km|$)/i);
+  const rota = rotaSolta || rotaFrete;
   const informouPedagio = /ped\S*/i.test(texto);
 
   return {
     origem: rota ? rota[1].trim() : "",
     destino: rota ? rota[2].trim() : "",
     valor_frete: extrairNumero(texto, /(?:valor|frete recebido|frete)\s*(?:de|r\$|=|:)?\s*([0-9][0-9.\s]*(?:,\d+)?)/i),
-    km_ida: extrairNumero(texto, /dist\S*\s*(?:de|aproximada|=|:)?\s*([0-9][0-9.\s]*(?:,\d+)?)\s*(?:km)?/i),
+    km_ida: extrairNumero(texto, /dist\S*\s*(?:de|aproximada|=|:)?\s*([0-9][0-9.\s]*(?:,\d+)?)\s*(?:km)?/i)
+      || extrairNumero(texto, /([0-9][0-9.\s]*(?:,\d+)?)\s*km\b(?!\s*\/\s*l)/i),
     preco_diesel: extrairNumero(texto, /diesel\s*(?:a|de|r\$|=|:)?\s*([0-9][0-9.\s]*(?:,\d+)?)/i),
-    consumo_diesel: extrairNumero(texto, /consumo\s*(?:de|=|:)?\s*([0-9][0-9.\s]*(?:,\d+)?)\s*(?:km\/l|km por litro)?/i),
+    consumo_diesel: extrairNumero(texto, /consumo\s*(?:de|=|:)?\s*([0-9][0-9.\s]*(?:,\d+)?)\s*(?:km\/l|km por litro)?/i)
+      || extrairNumero(texto, /([0-9][0-9.\s]*(?:,\d+)?)\s*km\s*\/\s*l/i),
     pedagio: extrairNumero(texto, /ped\S*\s*(?:de|r\$|=|:)?\s*([0-9][0-9.\s]*(?:,\d+)?)/i),
     informou_pedagio: informouPedagio
   };
@@ -433,6 +437,8 @@ function montarRespostaFrete(calculo) {
     "",
     `Origem: ${calculo.origem || "-"}`,
     `Destino: ${calculo.destino || "-"}`,
+    `Distancia informada: ${numero(calculo.km_ida)} km`,
+    `Km considerado: ${numero(calculo.km_total)} km (ida e volta vazio)`,
     `Valor do frete: ${dinheiro(calculo.valor_frete)}`,
     `Custo estimado: ${dinheiro(calculo.custo_total)}`,
     `Lucro estimado: ${dinheiro(calculo.lucro)}`,
